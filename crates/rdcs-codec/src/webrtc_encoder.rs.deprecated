@@ -1,0 +1,442 @@
+// Copyright 2026 RDCS Contributors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+
+//! WebRTC-based H.264 encoder implementation using libwebrtc's VideoToolbox (macOS)
+//! or equivalent hardware encoders on other platforms.
+
+use rdcs_platform::CapturedFrame;
+use std::sync::{Arc, Mutex};
+use std::time::Instant;
+
+use crate::{CodecError, Result};
+use crate::encoder::{CodecType, EncodedFrame, EncoderConfig, VideoEncoder};
+
+// ---------------------------------------------------------------------------
+// WebRTC Encoder Implementation
+// ---------------------------------------------------------------------------
+
+/// WebRTC H.264 encoder wrapper.
+///
+/// This encoder uses hardware-accelerated encoding when available:
+/// - macOS: VideoToolbox
+/// - Windows: Media Foundation / NVENC
+/// - Linux: VA-API / NVENC
+#[derive(Debug)]
+pub struct WebRtcEncoder {
+    config: Option<EncoderConfig>,
+    frame_count: u64,
+    start_time: Option<Instant>,
+
+    // Performance metrics
+    total_encode_time_us: u64,
+    total_encoded_bytes: u64,
+
+    // TODO: Real WebRTC encoder instance will go here
+    // encoder_handle: Option<*mut WebRtcEncoderHandle>,
+}
+
+impl WebRtcEncoder {
+    /// Create a new unconfigured WebRTC encoder.
+    pub fn new() -> Self {
+        Self {
+            config: None,
+            frame_count: 0,
+            start_time: None,
+            total_encode_time_us: 0,
+            total_encoded_bytes: 0,
+        }
+    }
+
+    /// Check if hardware acceleration is available on this platform.
+    pub fn is_hardware_available() -> bool {
+        #[cfg(target_os = "macos")]
+        {
+            // VideoToolbox is always available on macOS 10.9+
+            true
+        }
+        #[cfg(target_os = "windows")]
+        {
+            // TODO: Check for Media Foundation / NVENC
+            true
+        }
+        #[cfg(target_os = "linux")]
+        {
+            // TODO: Check for VA-API / NVENC
+            false
+        }
+        #[cfg(not(any(target_os = "macos", target_os = "windows", target_os = "linux")))]
+        {
+            false
+        }
+    }
+
+    /// Get encoding performance metrics.
+    pub fn metrics(&self) -> EncoderMetrics {
+        let avg_encode_time_us = if self.frame_count > 0 {
+            self.total_encode_time_us / self.frame_count
+        } else {
+            0
+        };
+
+        let avg_frame_size = if self.frame_count > 0 {
+            self.total_encoded_bytes / self.frame_count
+        } else {
+            0
+        };
+
+        EncoderMetrics {
+            frames_encoded: self.frame_count,
+            avg_encode_time_us,
+            total_encoded_bytes: self.total_encoded_bytes,
+            avg_frame_size_bytes: avg_frame_size,
+        }
+    }
+}
+
+impl Default for WebRtcEncoder {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl VideoEncoder for WebRtcEncoder {
+    fn configure(&mut self, config: EncoderConfig) -> Result<()> {
+        tracing::info!(
+            "Configuring WebRTC encoder: {}x{} @ {}fps, codec={:?}, bitrate={}bps, hw_accel={}",
+            config.width,
+            config.height,
+            config.target_fps,
+            config.codec,
+            config.target_bitrate_bps,
+            config.hardware_accel
+        );
+
+        // Validate configuration
+        if config.width == 0 || config.height == 0 {
+            return Err(CodecError::InvalidConfig(
+                "width and height must be > 0".into(),
+            ));
+        }
+
+        if config.target_fps == 0 || config.target_fps > 240 {
+            return Err(CodecError::InvalidConfig(
+                "target_fps must be in range 1-240".into(),
+            ));
+        }
+
+        // Check codec support
+        match config.codec {
+            CodecType::H264 => {
+                // H.264 is always supported
+            }
+            CodecType::H265 => {
+                #[cfg(not(target_os = "macos"))]
+                return Err(CodecError::NotAvailable(
+                    "H.265 hardware encoding only available on macOS".into(),
+                ));
+            }
+            CodecType::Vp9 | CodecType::Av1 => {
+                return Err(CodecError::NotAvailable(
+                    format!("{:?} not yet implemented", config.codec),
+                ));
+            }
+        }
+
+        // Check hardware acceleration availability
+        if config.hardware_accel && !Self::is_hardware_available() {
+            tracing::warn!("Hardware acceleration requested but not available, falling back to software");
+        }
+
+        // TODO: Initialize real WebRTC encoder here
+        // For now, store config and reset counters
+        self.config = Some(config);
+        self.frame_count = 0;
+        self.start_time = Some(Instant::now());
+        self.total_encode_time_us = 0;
+        self.total_encoded_bytes = 0;
+
+        tracing::info!("WebRTC encoder configured successfully");
+        Ok(())
+    }
+
+    fn encode(&mut self, frame: &CapturedFrame) -> Result<EncodedFrame> {
+        let config = self.config.as_ref().ok_or(CodecError::NotConfigured)?;
+        let encode_start = Instant::now();
+
+        tracing::trace!(
+            "Encoding frame {}: {}x{}, format={:?}, data_len={}",
+            self.frame_count,
+            frame.width,
+            frame.height,
+            frame.pixel_format,
+            frame.data.len()
+        );
+
+        // TODO: Replace with real WebRTC encoding
+        // For now, simulate encoding with compression
+        let compressed_data = simulate_h264_encoding(frame, config)?;
+
+        let is_keyframe = self.frame_count % config.keyframe_interval as u64 == 0;
+        let pts = frame.timestamp_us;
+
+        let encode_time = encode_start.elapsed();
+        self.total_encode_time_us += encode_time.as_micros() as u64;
+        self.total_encoded_bytes += compressed_data.len() as u64;
+        self.frame_count += 1;
+
+        tracing::trace!(
+            "Frame {} encoded: size={} bytes, is_keyframe={}, time={:?}",
+            self.frame_count - 1,
+            compressed_data.len(),
+            is_keyframe,
+            encode_time
+        );
+
+        Ok(EncodedFrame {
+            data: compressed_data,
+            is_keyframe,
+            pts_us: pts,
+            dts_us: pts,
+            codec: config.codec,
+            width: frame.width,
+            height: frame.height,
+        })
+    }
+
+    fn flush(&mut self) -> Result<Vec<EncodedFrame>> {
+        tracing::debug!("Flushing WebRTC encoder");
+        // TODO: Flush real encoder buffers
+        Ok(Vec::new())
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Performance Metrics
+// ---------------------------------------------------------------------------
+
+/// Encoder performance metrics for debugging and optimization.
+#[derive(Debug, Clone)]
+pub struct EncoderMetrics {
+    /// Total number of frames encoded.
+    pub frames_encoded: u64,
+    /// Average encode time per frame in microseconds.
+    pub avg_encode_time_us: u64,
+    /// Total bytes encoded.
+    pub total_encoded_bytes: u64,
+    /// Average frame size in bytes.
+    pub avg_frame_size_bytes: u64,
+}
+
+impl EncoderMetrics {
+    /// Check if encoding performance meets PRD requirements.
+    ///
+    /// PRD requirement: CPU < 30% for 1080P/60FPS
+    /// Approximation: encode time should be < 16ms (60fps = 16.67ms per frame)
+    /// With 30% CPU budget, encode time should be < 5ms
+    pub fn meets_prd_requirements(&self) -> bool {
+        const MAX_ENCODE_TIME_US: u64 = 5_000; // 5ms
+        self.avg_encode_time_us < MAX_ENCODE_TIME_US
+    }
+
+    /// Get estimated CPU usage percentage.
+    ///
+    /// Assumes 60 FPS target (16.67ms frame time).
+    pub fn estimated_cpu_percent(&self) -> f64 {
+        const FRAME_TIME_60FPS_US: f64 = 16_666.67;
+        (self.avg_encode_time_us as f64 / FRAME_TIME_60FPS_US) * 100.0
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Temporary simulation (will be replaced with real WebRTC)
+// ---------------------------------------------------------------------------
+
+/// Simulate H.264 encoding for testing purposes.
+///
+/// This is a temporary placeholder that applies simple compression.
+/// Real implementation will use libwebrtc's VideoEncoder.
+fn simulate_h264_encoding(frame: &CapturedFrame, config: &EncoderConfig) -> Result<Vec<u8>> {
+    // Simulate compression ratio
+    // H.264 typically achieves 50:1 to 200:1 compression for screen content
+    let compression_ratio = if frame.width >= 1920 { 100 } else { 80 };
+
+    let uncompressed_size = frame.data.len();
+    let compressed_size = uncompressed_size / compression_ratio;
+
+    // Create simulated NAL unit with H.264 header
+    let mut data = Vec::with_capacity(compressed_size + 32);
+
+    // H.264 start code
+    data.extend_from_slice(&[0x00, 0x00, 0x00, 0x01]);
+
+    // NAL unit header (SPS for keyframe simulation)
+    data.push(0x67); // NAL type: SPS
+
+    // Add metadata
+    data.extend_from_slice(&frame.width.to_le_bytes());
+    data.extend_from_slice(&frame.height.to_le_bytes());
+    data.extend_from_slice(&frame.timestamp_us.to_le_bytes());
+
+    // Simulate compressed payload (just zeros for now)
+    data.resize(compressed_size, 0);
+
+    Ok(data)
+}
+
+// ---------------------------------------------------------------------------
+// Tests
+// ---------------------------------------------------------------------------
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rdcs_platform::PixelFormat;
+
+    fn make_test_frame(w: u32, h: u32, timestamp_us: u64) -> CapturedFrame {
+        let stride = w * 4;
+        CapturedFrame {
+            data: vec![42u8; (stride * h) as usize],
+            width: w,
+            height: h,
+            pixel_format: PixelFormat::Bgra,
+            stride,
+            display_id: 0,
+            timestamp_us,
+        }
+    }
+
+    #[test]
+    fn webrtc_encoder_not_configured() {
+        let mut encoder = WebRtcEncoder::new();
+        let frame = make_test_frame(1920, 1080, 0);
+        let result = encoder.encode(&frame);
+        assert!(result.is_err());
+        assert!(matches!(result.unwrap_err(), CodecError::NotConfigured));
+    }
+
+    #[test]
+    fn webrtc_encoder_configure_valid() {
+        let mut encoder = WebRtcEncoder::new();
+        let config = EncoderConfig::full_hd();
+        assert!(encoder.configure(config).is_ok());
+    }
+
+    #[test]
+    fn webrtc_encoder_invalid_config_zero_width() {
+        let mut encoder = WebRtcEncoder::new();
+        let mut config = EncoderConfig::default();
+        config.width = 0;
+        assert!(encoder.configure(config).is_err());
+    }
+
+    #[test]
+    fn webrtc_encoder_invalid_config_high_fps() {
+        let mut encoder = WebRtcEncoder::new();
+        let mut config = EncoderConfig::default();
+        config.target_fps = 300;
+        assert!(encoder.configure(config).is_err());
+    }
+
+    #[test]
+    fn webrtc_encoder_encode_single_frame() {
+        let mut encoder = WebRtcEncoder::new();
+        encoder.configure(EncoderConfig::full_hd()).unwrap();
+
+        let frame = make_test_frame(1920, 1080, 1_000_000);
+        let encoded = encoder.encode(&frame).unwrap();
+
+        assert_eq!(encoded.width, 1920);
+        assert_eq!(encoded.height, 1080);
+        assert_eq!(encoded.codec, CodecType::H264);
+        assert_eq!(encoded.pts_us, 1_000_000);
+        assert!(encoded.is_keyframe); // First frame is keyframe
+        assert!(!encoded.data.is_empty());
+    }
+
+    #[test]
+    fn webrtc_encoder_keyframe_interval() {
+        let mut encoder = WebRtcEncoder::new();
+        let mut config = EncoderConfig::default();
+        config.keyframe_interval = 30;
+        encoder.configure(config).unwrap();
+
+        let frame = make_test_frame(1920, 1080, 0);
+
+        // Frame 0: keyframe
+        let f0 = encoder.encode(&frame).unwrap();
+        assert!(f0.is_keyframe);
+
+        // Frames 1-29: not keyframes
+        for _ in 1..30 {
+            let f = encoder.encode(&frame).unwrap();
+            assert!(!f.is_keyframe);
+        }
+
+        // Frame 30: keyframe again
+        let f30 = encoder.encode(&frame).unwrap();
+        assert!(f30.is_keyframe);
+    }
+
+    #[test]
+    fn webrtc_encoder_metrics() {
+        let mut encoder = WebRtcEncoder::new();
+        encoder.configure(EncoderConfig::full_hd()).unwrap();
+
+        let frame = make_test_frame(1920, 1080, 0);
+
+        // Encode 10 frames
+        for _ in 0..10 {
+            encoder.encode(&frame).unwrap();
+        }
+
+        let metrics = encoder.metrics();
+        assert_eq!(metrics.frames_encoded, 10);
+        assert!(metrics.avg_encode_time_us > 0);
+        assert!(metrics.total_encoded_bytes > 0);
+        assert!(metrics.avg_frame_size_bytes > 0);
+    }
+
+    #[test]
+    fn webrtc_encoder_compression_ratio() {
+        let mut encoder = WebRtcEncoder::new();
+        encoder.configure(EncoderConfig::full_hd()).unwrap();
+
+        let frame = make_test_frame(1920, 1080, 0);
+        let uncompressed_size = frame.data.len();
+
+        let encoded = encoder.encode(&frame).unwrap();
+        let compressed_size = encoded.data.len();
+
+        // Should achieve significant compression
+        let ratio = uncompressed_size / compressed_size;
+        assert!(ratio > 50, "Compression ratio {} is too low", ratio);
+    }
+
+    #[test]
+    fn encoder_metrics_prd_check() {
+        let metrics = EncoderMetrics {
+            frames_encoded: 100,
+            avg_encode_time_us: 4_000, // 4ms - should pass
+            total_encoded_bytes: 1_000_000,
+            avg_frame_size_bytes: 10_000,
+        };
+
+        assert!(metrics.meets_prd_requirements());
+        assert!(metrics.estimated_cpu_percent() < 30.0);
+    }
+
+    #[test]
+    fn encoder_metrics_prd_fail() {
+        let metrics = EncoderMetrics {
+            frames_encoded: 100,
+            avg_encode_time_us: 10_000, // 10ms - should fail
+            total_encoded_bytes: 1_000_000,
+            avg_frame_size_bytes: 10_000,
+        };
+
+        assert!(!metrics.meets_prd_requirements());
+        assert!(metrics.estimated_cpu_percent() > 30.0);
+    }
+}

@@ -1,0 +1,67 @@
+# Copyright 2026 RDCS Contributors
+# SPDX-License-Identifier: Apache-2.0
+
+# RDCS Signaling Server - Multi-stage Dockerfile
+# Build: docker build -f deploy/docker/Dockerfile.signaling -t rdcs-signaling .
+
+# ===========================================
+# Stage 1: Build the Rust binary
+# ===========================================
+FROM rust:1.80-bookworm AS builder
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    cmake \
+    pkg-config \
+    libssl-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /build
+
+# Cache dependencies: copy workspace manifests first
+COPY Cargo.toml Cargo.lock ./
+COPY crates/rdcs-signaling/Cargo.toml crates/rdcs-signaling/Cargo.toml
+COPY crates/rdcs-relay/Cargo.toml crates/rdcs-relay/Cargo.toml
+COPY crates/rdcs-core/Cargo.toml crates/rdcs-core/Cargo.toml
+COPY crates/rdcs-crypto/Cargo.toml crates/rdcs-crypto/Cargo.toml
+COPY crates/rdcs-transport/Cargo.toml crates/rdcs-transport/Cargo.toml
+COPY crates/rdcs-connection/Cargo.toml crates/rdcs-connection/Cargo.toml
+COPY crates/rdcs-codec/Cargo.toml crates/rdcs-codec/Cargo.toml
+COPY crates/rdcs-platform/Cargo.toml crates/rdcs-platform/Cargo.toml
+COPY crates/rdcs-transfer/Cargo.toml crates/rdcs-transfer/Cargo.toml
+COPY crates/rdcs-ffi/Cargo.toml crates/rdcs-ffi/Cargo.toml
+COPY crates/rdcs-macos/Cargo.toml crates/rdcs-macos/Cargo.toml
+
+# Create dummy source files to cache dependency compilation
+RUN for crate in rdcs-signaling rdcs-relay rdcs-core rdcs-crypto rdcs-transport \
+    rdcs-connection rdcs-codec rdcs-platform rdcs-transfer rdcs-ffi rdcs-macos; do \
+      mkdir -p crates/$crate/src && echo "fn main() {}" > crates/$crate/src/main.rs && echo "" > crates/$crate/src/lib.rs; \
+    done
+
+# Build dependencies only (cached layer)
+RUN cargo build --release --bin rdcs-signaling || true
+
+# Now copy real source code and rebuild
+COPY crates/ crates/
+RUN touch crates/rdcs-signaling/src/main.rs && cargo build --release --bin rdcs-signaling
+
+# ===========================================
+# Stage 2: Minimal runtime image
+# ===========================================
+FROM debian:bookworm-slim AS runtime
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates \
+    libssl3 \
+    netcat-openbsd \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create non-root user
+RUN groupadd -g 1000 rdcs && useradd -u 1000 -g rdcs -m -s /bin/bash rdcs
+
+COPY --from=builder /build/target/release/rdcs-signaling /usr/local/bin/rdcs-signaling
+
+USER rdcs:rdcs
+
+EXPOSE 8443
+
+ENTRYPOINT ["rdcs-signaling"]

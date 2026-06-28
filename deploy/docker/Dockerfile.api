@@ -1,0 +1,46 @@
+# Copyright 2026 RDCS Contributors
+# SPDX-License-Identifier: Apache-2.0
+
+# RDCS Management API - Multi-stage Dockerfile (Production)
+# Build: docker build -f deploy/docker/Dockerfile.api -t rdcs-api .
+
+# ===========================================
+# Stage 1: Build the Go binary
+# ===========================================
+FROM --platform=$TARGETPLATFORM golang:1.22-alpine AS builder
+
+RUN apk add --no-cache git
+
+WORKDIR /build
+
+# Cache module downloads
+COPY services/api/go.mod services/api/go.sum ./
+RUN go mod download
+
+# Copy source and build
+COPY services/api/ ./
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=$TARGETARCH go build -ldflags="-s -w" -o /out/rdcs-api ./cmd/api
+
+# ===========================================
+# Stage 2: Minimal runtime image
+# ===========================================
+FROM alpine:3.20 AS runtime
+
+RUN apk add --no-cache \
+    ca-certificates \
+    tzdata \
+    wget
+
+# Create non-root user
+RUN addgroup -g 1000 rdcs && adduser -u 1000 -G rdcs -D -h /home/rdcs rdcs
+
+COPY --from=builder /out/rdcs-api /usr/local/bin/rdcs-api
+
+USER rdcs:rdcs
+
+EXPOSE 8080
+
+HEALTHCHECK --interval=15s --timeout=5s --retries=3 --start-period=5s \
+  CMD wget --no-verbose --tries=1 --spider http://localhost:8080/healthz || exit 1
+
+ENTRYPOINT ["rdcs-api"]

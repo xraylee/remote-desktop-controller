@@ -1,0 +1,21 @@
+[package]
+name = "rdcs-session"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Session orchestration: connects WebRTC media pipeline with signaling and transport"
+
+[dependencies]
+rdcs-codec = { path = "../rdcs-codec" }
+rdcs-connection = { path = "../rdcs-connection" }
+rdcs-signaling = { path = "../rdcs-signaling" }
+rdcs-transport = { path = "../rdcs-transport" }
+rdcs-platform = { path = "../rdcs-platform" }
+tokio = { workspace = true }
+tracing = { workspace = true }
+thiserror = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+uuid = { workspace = true }
+# libwebrtc 已移除 - 会话层将直接使用 rdcs-codec 的平台原生编解码器
+futures-util = "0.3"

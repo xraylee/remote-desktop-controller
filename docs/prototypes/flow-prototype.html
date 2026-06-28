@@ -1,0 +1,883 @@
+<!-- DEPRECATED: 此文件为早期流程原型，已被 product-prototype-v3.html 取代 -->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RDCS - 详细流程原型</title>
+<style>
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+:root {
+  --navy: #0F172A;
+  --teal: #14B8A6;
+  --teal-dark: #0D9488;
+  --bg: #F8FAFC;
+  --surface: #FFFFFF;
+  --text: #1E293B;
+  --text-muted: #64748B;
+  --border: #E2E8F0;
+  --success: #10B981;
+  --warning: #F59E0B;
+  --shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
+  --shadow-lg: 0 10px 25px rgba(15, 23, 42, 0.12);
+}
+
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.5;
+}
+
+.container {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 40px 24px;
+}
+
+h1 {
+  font-size: 28px;
+  font-weight: 700;
+  margin-bottom: 8px;
+  color: var(--navy);
+}
+
+.subtitle {
+  font-size: 15px;
+  color: var(--text-muted);
+  margin-bottom: 48px;
+}
+
+.prototypes-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
+  gap: 48px;
+}
+
+.prototype-section {
+  background: var(--surface);
+  border-radius: 16px;
+  padding: 32px;
+  box-shadow: var(--shadow-lg);
+}
+
+.prototype-label {
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--teal);
+  margin-bottom: 8px;
+}
+
+.prototype-title {
+  font-size: 20px;
+  font-weight: 600;
+  margin-bottom: 24px;
+  color: var(--navy);
+}
+
+/* Modal */
+.modal-overlay {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 24px;
+  box-shadow: var(--shadow);
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.modal-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--navy);
+}
+
+.modal-close {
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: var(--bg);
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 18px;
+  color: var(--text-muted);
+}
+
+.input-group {
+  margin-bottom: 20px;
+}
+
+.input-label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+}
+
+.device-code-input {
+  width: 100%;
+  padding: 16px;
+  border: 2px solid var(--border);
+  border-radius: 10px;
+  font-family: 'JetBrains Mono', 'Courier New', monospace;
+  font-size: 28px;
+  font-weight: 700;
+  text-align: center;
+  letter-spacing: 4px;
+  color: var(--navy);
+  transition: border-color 0.2s;
+}
+
+.device-code-input:focus {
+  outline: none;
+  border-color: var(--teal);
+}
+
+.input-hint {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 8px;
+  text-align: center;
+}
+
+.btn-primary {
+  width: 100%;
+  padding: 14px;
+  background: var(--teal);
+  color: white;
+  border: none;
+  border-radius: 10px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+  margin-bottom: 12px;
+}
+
+.btn-primary:hover {
+  background: var(--teal-dark);
+}
+
+.btn-secondary {
+  width: 100%;
+  padding: 14px;
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  font-size: 15px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-secondary:hover {
+  border-color: var(--teal);
+  color: var(--teal);
+}
+
+.divider {
+  display: flex;
+  align-items: center;
+  margin: 20px 0;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.divider::before,
+.divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
+.divider span {
+  padding: 0 12px;
+}
+
+/* Passcode */
+.passcode-display {
+  text-align: center;
+  padding: 32px 24px;
+  background: linear-gradient(135deg, #F0FDFA 0%, #E0F7F5 100%);
+  border-radius: 12px;
+  margin-bottom: 20px;
+}
+
+.passcode-label {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-bottom: 12px;
+}
+
+.passcode-value {
+  font-family: 'JetBrains Mono', 'Courier New', monospace;
+  font-size: 56px;
+  font-weight: 700;
+  color: var(--teal);
+  letter-spacing: 8px;
+  margin-bottom: 16px;
+}
+
+.passcode-timer {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  background: white;
+  border-radius: 20px;
+  font-size: 14px;
+  color: var(--text-muted);
+}
+
+.timer-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--warning);
+  animation: pulse 1s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+.passcode-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+/* Device Management */
+.device-list-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.search-box {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  width: 240px;
+}
+
+.search-box input {
+  flex: 1;
+  border: none;
+  background: none;
+  font-size: 14px;
+  color: var(--text);
+  outline: none;
+}
+
+.btn-add {
+  padding: 10px 20px;
+  background: var(--teal);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.filter-row {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.filter-select {
+  padding: 8px 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 13px;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.device-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 16px;
+  margin-bottom: 12px;
+  transition: all 0.2s;
+}
+
+.device-card:hover {
+  border-color: var(--teal);
+  box-shadow: var(--shadow);
+}
+
+.device-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.device-card-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.device-icon {
+  width: 40px;
+  height: 40px;
+  background: var(--bg);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+}
+
+.device-details h4 {
+  font-size: 15px;
+  font-weight: 600;
+  margin-bottom: 2px;
+}
+
+.device-details p {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.device-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--success);
+}
+
+.device-card-body {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  padding: 12px;
+  background: var(--bg);
+  border-radius: 8px;
+  font-size: 13px;
+  margin-bottom: 12px;
+}
+
+.info-item {
+  display: flex;
+  flex-direction: column;
+}
+
+.info-label {
+  color: var(--text-muted);
+  margin-bottom: 2px;
+}
+
+.info-value {
+  font-weight: 500;
+  color: var(--navy);
+}
+
+.device-card-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.btn-action {
+  flex: 1;
+  padding: 8px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-action:hover {
+  border-color: var(--teal);
+  color: var(--teal);
+}
+
+/* Connection Records */
+.records-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+
+.export-btn {
+  padding: 10px 20px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 14px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.records-table {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.records-table-header {
+  display: grid;
+  grid-template-columns: 1.5fr 1.5fr 1fr 1fr 1fr 1fr;
+  padding: 14px 20px;
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.records-table-row {
+  display: grid;
+  grid-template-columns: 1.5fr 1.5fr 1fr 1fr 1fr 1fr;
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--border);
+  font-size: 14px;
+  transition: background 0.2s;
+}
+
+.records-table-row:hover {
+  background: #F8FAFC;
+}
+
+.records-table-row:last-child {
+  border-bottom: none;
+}
+
+.path-badge {
+  display: inline-block;
+  padding: 4px 10px;
+  background: var(--bg);
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.path-badge.l1 { background: #D1FAE5; color: #065F46; }
+.path-badge.l2 { background: #DBEAFE; color: #1E40AF; }
+.path-badge.l3 { background: #FEF3C7; color: #92400E; }
+
+.action-link {
+  color: var(--teal);
+  text-decoration: none;
+  font-weight: 500;
+}
+
+/* WeChat Mini Program */
+.mini-program-frame {
+  background: var(--surface);
+  border: 2px solid var(--border);
+  border-radius: 24px;
+  padding: 16px;
+  max-width: 320px;
+  margin: 0 auto;
+}
+
+.mini-program-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  margin-bottom: 12px;
+}
+
+.mini-program-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--navy);
+}
+
+.mini-program-body {
+  background: #1E293B;
+  border-radius: 12px;
+  height: 360px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 13px;
+  margin-bottom: 12px;
+  position: relative;
+}
+
+.mini-program-status {
+  position: absolute;
+  bottom: 12px;
+  left: 12px;
+  right: 12px;
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background: rgba(15, 23, 42, 0.9);
+  border-radius: 8px;
+  font-size: 11px;
+  color: rgba(255,255,255,0.9);
+}
+
+.mini-program-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.mini-btn {
+  padding: 12px;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.mini-btn-chat {
+  background: var(--teal);
+  color: white;
+}
+
+.mini-btn-disconnect {
+  background: #FEE2E2;
+  color: #991B1B;
+}
+
+@media (max-width: 768px) {
+  .prototypes-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .records-table-header,
+  .records-table-row {
+    grid-template-columns: 1fr 1fr 1fr;
+  }
+  
+  .records-table-header > *:nth-child(n+4),
+  .records-table-row > *:nth-child(n+4) {
+    display: none;
+  }
+}
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>RDCS 详细流程原型</h1>
+  <p class="subtitle">连接、口令、设备管理、连接记录、微信小程序</p>
+  
+  <div class="prototypes-grid">
+    
+    <!-- Connection Panel -->
+    <div class="prototype-section">
+      <div class="prototype-label">客户端</div>
+      <div class="prototype-title">连接面板（点击"连接远程电脑"）</div>
+      
+      <div class="modal-overlay">
+        <div class="modal-header">
+          <div class="modal-title">连接远程电脑</div>
+          <button class="modal-close">×</button>
+        </div>
+        
+        <div class="input-group">
+          <label class="input-label">输入对方设备码</label>
+          <input type="text" class="device-code-input" placeholder="123 456 789" value="987 654 321">
+          <div class="input-hint">9 位数字，空格分隔（如：123 456 789）</div>
+        </div>
+        
+        <button class="btn-primary">发起连接</button>
+        
+        <div class="divider"><span>或</span></div>
+        
+        <button class="btn-secondary">📱 扫描二维码</button>
+        
+        <div style="margin-top: 20px;">
+          <div class="input-label">附近设备</div>
+          <div class="device-item" style="padding: 12px; border: 1px solid var(--border); border-radius: 8px; margin-bottom: 8px; display: flex; align-items: center; justify-content: space-between;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <div class="status-dot" style="width: 8px; height: 8px; border-radius: 50%; background: var(--success);"></div>
+              <div style="font-size: 14px; font-weight: 500;">小李的 MacBook</div>
+            </div>
+            <button class="device-connect" style="padding: 6px 14px; background: var(--teal); color: white; border: none; border-radius: 6px; font-size: 13px; font-weight: 500; cursor: pointer;">连接</button>
+          </div>
+          <div class="device-item" style="padding: 12px; border: 1px solid var(--border); border-radius: 8px; display: flex; align-items: center; justify-content: space-between;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <div class="status-dot" style="width: 8px; height: 8px; border-radius: 50%; background: var(--success);"></div>
+              <div style="font-size: 14px; font-weight: 500;">王工的 iMac</div>
+            </div>
+            <button class="device-connect" style="padding: 6px 14px; background: var(--teal); color: white; border: none; border-radius: 6px; font-size: 13px; font-weight: 500; cursor: pointer;">连接</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Temporary Passcode -->
+    <div class="prototype-section">
+      <div class="prototype-label">客户端</div>
+      <div class="prototype-title">邀请码生成</div>
+      
+      <div class="modal-overlay">
+        <div class="passcode-display">
+          <div class="passcode-label">邀请码</div>
+          <div class="passcode-value">5823</div>
+          <div class="passcode-timer">
+            <div class="timer-dot"></div>
+            <span>09:45 后过期</span>
+          </div>
+        </div>
+        
+        <div class="passcode-actions">
+          <button class="btn-secondary">📋 复制邀请码</button>
+          <button class="btn-secondary">📤 分享</button>
+        </div>
+        
+        <div style="margin-top: 20px; padding: 16px; background: #F0FDFA; border-radius: 8px; font-size: 13px; color: var(--text-muted);">
+          💡 将口令发送给对方，10 分钟内有效，仅可使用一次
+        </div>
+      </div>
+    </div>
+    
+    <!-- Device Management -->
+    <div class="prototype-section" style="grid-column: 1 / -1;">
+      <div class="prototype-label">Web 控制台</div>
+      <div class="prototype-title">设备管理</div>
+      
+      <div class="device-list-header">
+        <div class="search-box">
+          <span>🔍</span>
+          <input type="text" placeholder="搜索设备...">
+        </div>
+        <button class="btn-add">+ 添加设备</button>
+      </div>
+      
+      <div class="filter-row">
+        <select class="filter-select">
+          <option>全部设备</option>
+          <option>在线</option>
+          <option>离线</option>
+        </select>
+        <select class="filter-select">
+          <option>全部系统</option>
+          <option>macOS</option>
+          <option>Windows</option>
+          <option>Linux</option>
+        </select>
+      </div>
+      
+      <div class="device-card">
+        <div class="device-card-header">
+          <div class="device-card-info">
+            <div class="device-icon">💻</div>
+            <div class="device-details">
+              <h4>张工的 MacBook Pro</h4>
+              <p>123 456 789 · macOS 15.5</p>
+            </div>
+          </div>
+          <div class="device-status">
+            <div class="status-dot"></div>
+            <span>在线</span>
+          </div>
+        </div>
+        
+        <div class="device-card-body">
+          <div class="info-item">
+            <span class="info-label">IP 地址</span>
+            <span class="info-value">192.168.1.100</span>
+          </div>
+          <div class="info-item">
+            <span class="info-label">上次连接</span>
+            <span class="info-value">10 分钟前</span>
+          </div>
+        </div>
+        
+        <div class="device-card-actions">
+          <button class="btn-action">查看详情</button>
+          <button class="btn-action">生成邀请码</button>
+          <button class="btn-action" style="color: #DC2626;">移除</button>
+        </div>
+      </div>
+      
+      <div class="device-card">
+        <div class="device-card-header">
+          <div class="device-card-info">
+            <div class="device-icon">🖥️</div>
+            <div class="device-details">
+              <h4>小李的 Windows 11</h4>
+              <p>987 654 321 · Windows 11</p>
+            </div>
+          </div>
+          <div class="device-status" style="color: var(--text-muted);">
+            <div class="status-dot" style="background: var(--text-muted);"></div>
+            <span>离线</span>
+          </div>
+        </div>
+        
+        <div class="device-card-body">
+          <div class="info-item">
+            <span class="info-label">最后在线</span>
+            <span class="info-value">昨天 18:30</span>
+          </div>
+          <div class="info-item">
+            <span class="info-label">连接次数</span>
+            <span class="info-value">12 次</span>
+          </div>
+        </div>
+        
+        <div class="device-card-actions">
+          <button class="btn-action">查看详情</button>
+          <button class="btn-action" style="color: #DC2626;">移除</button>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Connection Records -->
+    <div class="prototype-section" style="grid-column: 1 / -1;">
+      <div class="prototype-label">Web 控制台</div>
+      <div class="prototype-title">连接记录</div>
+      
+      <div class="records-header">
+        <div class="filter-row" style="margin-bottom: 0;">
+          <select class="filter-select">
+            <option>最近 7 天</option>
+            <option>最近 30 天</option>
+            <option>全部</option>
+          </select>
+        </div>
+        <button class="export-btn">📥 导出 CSV</button>
+      </div>
+      
+      <div class="records-table">
+        <div class="records-table-header">
+          <div>时间</div>
+          <div>控制方</div>
+          <div>被控方</div>
+          <div>时长</div>
+          <div>路径</div>
+          <div>操作</div>
+        </div>
+        <div class="records-table-row">
+          <div>06-25 14:32</div>
+          <div>张工</div>
+          <div>小李的 MacBook</div>
+          <div>12 分钟</div>
+          <div><span class="path-badge l2">L2</span></div>
+          <div><a href="#" class="action-link">详情</a></div>
+        </div>
+        <div class="records-table-row">
+          <div>06-25 13:15</div>
+          <div>王工</div>
+          <div>小陈的 Windows</div>
+          <div>8 分钟</div>
+          <div><span class="path-badge l3">L3</span></div>
+          <div><a href="#" class="action-link">详情</a></div>
+        </div>
+        <div class="records-table-row">
+          <div>06-25 11:02</div>
+          <div>张工</div>
+          <div>小王的 Windows</div>
+          <div>25 分钟</div>
+          <div><span class="path-badge l1">L1</span></div>
+          <div><a href="#" class="action-link">详情</a></div>
+        </div>
+        <div class="records-table-row">
+          <div>06-24 16:45</div>
+          <div>张工</div>
+          <div>小李的 MacBook</div>
+          <div>5 分钟</div>
+          <div><span class="path-badge l2">L2</span></div>
+          <div><a href="#" class="action-link">详情</a></div>
+        </div>
+        <div class="records-table-row">
+          <div>06-24 14:20</div>
+          <div>王工</div>
+          <div>小陈的 Windows</div>
+          <div>15 分钟</div>
+          <div><span class="path-badge l3">L3</span></div>
+          <div><a href="#" class="action-link">详情</a></div>
+        </div>
+      </div>
+      
+      <div style="margin-top: 16px; font-size: 12px; color: var(--text-muted);">
+        路径说明：<span class="path-badge l1" style="margin-right: 8px;">L1 局域网直连</span>
+        <span class="path-badge l2" style="margin-right: 8px;">L2 P2P 穿透</span>
+        <span class="path-badge l3">L3 官方中转</span>
+      </div>
+    </div>
+    
+    <!-- WeChat Mini Program -->
+    <div class="prototype-section">
+      <div class="prototype-label">微信小程序</div>
+      <div class="prototype-title">临时控制端（V1.1）</div>
+      
+      <div class="mini-program-frame">
+        <div class="mini-program-header">
+          <div class="mini-program-title">RDCS 远程协助</div>
+          <button style="background: none; border: none; font-size: 18px; cursor: pointer;">⋯</button>
+        </div>
+        
+        <div class="mini-program-body">
+          <div style="text-align: center;">
+            <div style="font-size: 36px; margin-bottom: 8px; opacity: 0.5;">🖥️</div>
+            <div>远程桌面画面</div>
+            <div style="font-size: 11px; opacity: 0.6; margin-top: 6px;">手机竖屏预览</div>
+          </div>
+          
+          <div class="mini-program-status">
+            <span>延迟 85ms</span>
+            <span>720P / 30fps</span>
+          </div>
+        </div>
+        
+        <div class="mini-program-actions">
+          <button class="mini-btn mini-btn-chat">💬 聊天</button>
+          <button class="mini-btn mini-btn-disconnect">断开</button>
+        </div>
+        
+        <div style="margin-top: 12px; text-align: center; font-size: 11px; color: var(--text-muted);">
+          MVP 阶段：只看不控 · V1.1 支持触摸控制
+        </div>
+      </div>
+    </div>
+    
+  </div>
+</div>
+</body>
+</html>

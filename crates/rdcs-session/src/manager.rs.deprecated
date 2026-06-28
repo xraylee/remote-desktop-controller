@@ -1,0 +1,420 @@
+// Copyright 2026 RDCS Contributors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+
+//! High-level session manager that orchestrates WebRTC media, signaling, and transport.
+//!
+//! The [`RdcsSession`] type manages the full lifecycle of a remote desktop session:
+//! - Initiating and answering connections via signaling messages
+//! - Sending captured frames through the encoding pipeline
+//! - Receiving decoded frames from the remote peer
+//! - Managing session lifecycle (connect, disconnect, reconnect)
+//!
+//! NOTE: This module is being migrated from libwebrtc to platform-native encoders.
+//! Current implementation uses deprecated peer_connection module.
+
+use std::time::Instant;
+
+// TODO: Remove libwebrtc imports - migrate to platform-native encoders
+// use libwebrtc::prelude::*;
+use tokio::sync::mpsc;
+use uuid::Uuid;
+
+// TODO: Migrate from peer_connection to direct encoder/decoder usage
+// use rdcs_codec::peer_connection::{WebRtcSession, WebRtcSessionState};
+use rdcs_codec::{
+    decoder::DecoderConfig,
+    encoder::EncoderConfig,
+};
+use rdcs_platform::CapturedFrame;
+use rdcs_signaling::ws::message::{IceCandidate as SigIceCandidate, WsMessage};
+
+use crate::{Result, SessionError};
+
+// ---------------------------------------------------------------------------
+// Session role
+// ---------------------------------------------------------------------------
+
+/// Role of this peer in the session.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SessionRole {
+    /// We initiated the connection (sent the offer).
+    Caller,
+    /// We received the connection request (sent the answer).
+    Callee,
+}
+
+// ---------------------------------------------------------------------------
+// Session state
+// ---------------------------------------------------------------------------
+
+/// High-level state of an RDCS session.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RdcsSessionState {
+    /// Session created, not yet connecting.
+    Idle,
+    /// SDP offer created, waiting for answer.
+    Offering,
+    /// SDP answer sent, ICE connecting.
+    Connecting,
+    /// PeerConnection established, media flowing.
+    Connected,
+    /// Session is disconnecting.
+    Disconnecting,
+    /// Session has been closed.
+    Closed,
+}
+
+impl From<WebRtcSessionState> for RdcsSessionState {
+    fn from(state: WebRtcSessionState) -> Self {
+        match state {
+            WebRtcSessionState::New => RdcsSessionState::Idle,
+            WebRtcSessionState::OfferCreated => RdcsSessionState::Offering,
+            WebRtcSessionState::Connecting => RdcsSessionState::Connecting,
+            WebRtcSessionState::Connected => RdcsSessionState::Connected,
+            WebRtcSessionState::Closed => RdcsSessionState::Closed,
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// RdcsSession
+// ---------------------------------------------------------------------------
+
+/// High-level session manager for a remote desktop connection.
+///
+/// Orchestrates the WebRTC media pipeline, signaling message exchange,
+/// and optional transport channel for non-media data.
+pub struct RdcsSession {
+    /// Unique session identifier.
+    session_id: String,
+    /// Our role in this session.
+    role: SessionRole,
+    /// The underlying WebRTC session.
+    webrtc: WebRtcSession,
+    /// Current high-level state.
+    state: RdcsSessionState,
+    /// Channel for outgoing signaling messages to be sent to the peer.
+    signaling_tx: mpsc::Sender<WsMessage>,
+    /// Session start time.
+    started_at: Option<Instant>,
+}
+
+impl RdcsSession {
+    /// Create a new RDCS session.
+    ///
+    /// The `signaling_tx` channel is used to send signaling messages
+    /// (SDP offers/answers, ICE candidates) to the peer via the signaling server.
+    pub fn new(
+        role: SessionRole,
+        signaling_tx: mpsc::Sender<WsMessage>,
+    ) -> Self {
+        let session_id = Uuid::new_v4().to_string();
+        Self {
+            session_id,
+            role,
+            webrtc: WebRtcSession::new(),
+            state: RdcsSessionState::Idle,
+            signaling_tx,
+            started_at: None,
+        }
+    }
+
+    /// Get the session ID.
+    pub fn session_id(&self) -> &str {
+        &self.session_id
+    }
+
+    /// Get the current session state.
+    pub fn state(&self) -> RdcsSessionState {
+        self.state
+    }
+
+    /// Get our role in this session.
+    pub fn role(&self) -> SessionRole {
+        self.role
+    }
+
+    // -----------------------------------------------------------------------
+    // Caller flow: initiate a connection
+    // -----------------------------------------------------------------------
+
+    /// Initialize the WebRTC session and create an SDP offer.
+    ///
+    /// This is the first step for the caller. After calling this, send the
+    /// returned offer SDP to the peer via signaling.
+    pub async fn initiate(
+        &mut self,
+        ice_servers: Vec<IceServer>,
+        resolution: VideoResolution,
+        hardware_accel: bool,
+    ) -> Result<String> {
+        self.webrtc
+            .initialize(ice_servers, resolution, true, hardware_accel)
+            .await
+            .map_err(SessionError::Codec)?;
+
+        // Register ICE candidate handler.
+        self.setup_ice_handler()?;
+
+        // Create SDP offer.
+        let sdp = self
+            .webrtc
+            .create_offer()
+            .await
+            .map_err(SessionError::Codec)?;
+
+        self.state = RdcsSessionState::Offering;
+        self.started_at = Some(Instant::now());
+
+        Ok(sdp)
+    }
+
+    /// Handle the SDP answer from the callee.
+    ///
+    /// Call this after receiving the answer from the peer via signaling.
+    pub async fn handle_answer(&mut self, sdp: &str) -> Result<()> {
+        self.webrtc
+            .handle_answer(sdp)
+            .await
+            .map_err(SessionError::Codec)?;
+
+        self.state = RdcsSessionState::Connecting;
+
+        Ok(())
+    }
+
+    // -----------------------------------------------------------------------
+    // Callee flow: answer a connection
+    // -----------------------------------------------------------------------
+
+    /// Initialize the WebRTC session and handle an incoming SDP offer.
+    ///
+    /// Returns the SDP answer to send back to the caller via signaling.
+    pub async fn answer(
+        &mut self,
+        offer_sdp: &str,
+        ice_servers: Vec<IceServer>,
+        resolution: VideoResolution,
+        hardware_accel: bool,
+    ) -> Result<String> {
+        self.webrtc
+            .initialize(ice_servers, resolution, true, hardware_accel)
+            .await
+            .map_err(SessionError::Codec)?;
+
+        // Register ICE candidate handler.
+        self.setup_ice_handler()?;
+
+        // Handle the offer and create answer.
+        let answer_sdp = self
+            .webrtc
+            .handle_offer_and_answer(offer_sdp)
+            .await
+            .map_err(SessionError::Codec)?;
+
+        self.state = RdcsSessionState::Connecting;
+        self.started_at = Some(Instant::now());
+
+        Ok(answer_sdp)
+    }
+
+    // -----------------------------------------------------------------------
+    // ICE candidate handling
+    // -----------------------------------------------------------------------
+
+    /// Handle a trickle ICE candidate from the remote peer.
+    pub async fn handle_ice_candidate(
+        &self,
+        sdp_mid: &str,
+        sdp_mline_index: i32,
+        candidate: &str,
+    ) -> Result<()> {
+        self.webrtc
+            .add_ice_candidate(sdp_mid, sdp_mline_index, candidate)
+            .await
+            .map_err(SessionError::Codec)?;
+        Ok(())
+    }
+
+    /// Set up the ICE candidate handler to forward candidates via signaling.
+    fn setup_ice_handler(&mut self) -> Result<()> {
+        let session_id = self.session_id.clone();
+        let signaling_tx = self.signaling_tx.clone();
+
+        self.webrtc.on_ice_candidate(move |candidate| {
+            let session_id = session_id.clone();
+            let tx = signaling_tx.clone();
+
+            // Extract candidate data before moving into async block.
+            let candidate_str = candidate.candidate();
+            let sdp_mid = candidate.sdp_mid();
+            let sdp_mline_index = candidate.sdp_mline_index();
+
+            // Send via signaling.
+            tokio::spawn(async move {
+                let msg = WsMessage::IceTrickle {
+                    session_id: session_id.clone(),
+                    candidate: SigIceCandidate {
+                        candidate: candidate_str,
+                        sdp_mid: Some(sdp_mid),
+                        sdp_m_line_index: Some(sdp_mline_index as u16),
+                    },
+                };
+                let _ = tx.send(msg).await;
+            });
+        })?;
+
+        self.webrtc
+            .on_connection_state_change(|state| {
+                tracing::info!("PeerConnection state changed: {:?}", state);
+            })?;
+
+        Ok(())
+    }
+
+    // -----------------------------------------------------------------------
+    // Media I/O
+    // -----------------------------------------------------------------------
+
+    /// Send a captured frame through the WebRTC pipeline.
+    ///
+    /// The frame is converted to I420 and pushed into the NativeVideoSource.
+    /// WebRTC handles encoding and transport internally.
+    pub fn send_frame(&mut self, frame: &CapturedFrame) -> Result<()> {
+        self.webrtc.send_frame(frame).map_err(SessionError::Codec)?;
+        Ok(())
+    }
+
+    /// Poll for a decoded frame from the remote video stream.
+    ///
+    /// Returns `Ok(None)` if no frame is currently available.
+    pub async fn poll_recv_frame(
+        &mut self,
+    ) -> Result<Option<rdcs_codec::decoder::DecodedFrame>> {
+        self.webrtc
+            .poll_recv_frame()
+            .await
+            .map_err(SessionError::Codec)
+    }
+
+    // -----------------------------------------------------------------------
+    // Configuration
+    // -----------------------------------------------------------------------
+
+    /// Set the encoder configuration for the sending side.
+    pub fn set_encoder_config(&mut self, config: EncoderConfig) {
+        self.webrtc.set_encoder_config(config);
+    }
+
+    /// Set the decoder configuration for the receiving side.
+    pub fn set_decoder_config(&mut self, config: DecoderConfig) {
+        self.webrtc.set_decoder_config(config);
+    }
+
+    // -----------------------------------------------------------------------
+    // Lifecycle
+    // -----------------------------------------------------------------------
+
+    /// Close the session and release all resources.
+    pub fn close(&mut self) {
+        self.webrtc.close();
+        self.state = RdcsSessionState::Closed;
+        tracing::info!("RDCS session {} closed", self.session_id);
+    }
+
+    /// Check if the session is connected and ready for media.
+    pub fn is_connected(&self) -> bool {
+        self.state == RdcsSessionState::Connected
+            || self.state == RdcsSessionState::Connecting
+    }
+
+    /// Get the duration of the session, if started.
+    pub fn duration(&self) -> Option<std::time::Duration> {
+        self.started_at.map(|t| t.elapsed())
+    }
+
+    /// Get the number of frames sent.
+    pub fn frames_sent(&self) -> u64 {
+        self.webrtc.frames_sent()
+    }
+
+    /// Get the number of frames received.
+    pub fn frames_received(&self) -> u64 {
+        self.webrtc.frames_received()
+    }
+}
+
+impl Drop for RdcsSession {
+    fn drop(&mut self) {
+        if self.state != RdcsSessionState::Closed {
+            self.close();
+        }
+    }
+}
+
+impl std::fmt::Debug for RdcsSession {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("RdcsSession")
+            .field("session_id", &self.session_id)
+            .field("role", &self.role)
+            .field("state", &self.state)
+            .field("frames_sent", &self.webrtc.frames_sent())
+            .field("frames_received", &self.webrtc.frames_received())
+            .finish()
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Tests
+// ---------------------------------------------------------------------------
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn session_initial_state() {
+        let (tx, _rx) = mpsc::channel(8);
+        let session = RdcsSession::new(SessionRole::Caller, tx);
+        assert_eq!(session.state(), RdcsSessionState::Idle);
+        assert_eq!(session.role(), SessionRole::Caller);
+        assert!(!session.session_id().is_empty());
+    }
+
+    #[test]
+    fn session_debug_format() {
+        let (tx, _rx) = mpsc::channel(8);
+        let session = RdcsSession::new(SessionRole::Callee, tx);
+        let dbg = format!("{:?}", session);
+        assert!(dbg.contains("RdcsSession"));
+        assert!(dbg.contains("Callee"));
+    }
+
+    #[test]
+    fn session_close_transitions_state() {
+        let (tx, _rx) = mpsc::channel(8);
+        let mut session = RdcsSession::new(SessionRole::Caller, tx);
+        session.close();
+        assert_eq!(session.state(), RdcsSessionState::Closed);
+    }
+
+    #[test]
+    fn session_is_connected_states() {
+        let (tx, _rx) = mpsc::channel(8);
+        let mut session = RdcsSession::new(SessionRole::Caller, tx);
+
+        assert!(!session.is_connected());
+
+        // Manually set state to test is_connected logic.
+        session.state = RdcsSessionState::Connecting;
+        assert!(session.is_connected());
+
+        session.state = RdcsSessionState::Connected;
+        assert!(session.is_connected());
+
+        session.state = RdcsSessionState::Closed;
+        assert!(!session.is_connected());
+    }
+}

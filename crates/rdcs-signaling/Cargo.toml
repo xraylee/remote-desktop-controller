@@ -1,0 +1,33 @@
+[package]
+name = "rdcs-signaling"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lib]
+name = "rdcs_signaling"
+path = "src/lib.rs"
+
+[[bin]]
+name = "rdcs-signaling"
+path = "src/main.rs"
+
+[dependencies]
+axum = { version = "0.8", features = ["ws"] }
+futures-util = "0.3"
+tokio.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+thiserror.workspace = true
+anyhow.workspace = true
+uuid.workspace = true
+redis = { version = "0.27", features = ["tokio-comp", "connection-manager"] }
+hmac = "0.12"
+sha2 = "0.10"
+
+[dev-dependencies]
+tower = { version = "0.5", features = ["util"] }
+reqwest = { version = "0.12", features = ["json"] }
+tokio-tungstenite = "0.29"

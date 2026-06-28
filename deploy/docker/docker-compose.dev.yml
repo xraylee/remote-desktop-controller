@@ -1,0 +1,119 @@
+# Copyright 2026 RDCS Contributors
+# SPDX-License-Identifier: Apache-2.0
+
+# RDCS - Docker Compose Development Overrides
+# Usage: docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d
+# Or simply: make dev
+
+x-dev-logging: &dev-logging
+  logging:
+    driver: json-file
+    options:
+      max-size: "10m"
+      max-file: "3"
+
+services:
+  # ===========================================
+  # Signaling Server - cargo-watch hot-reload
+  # ===========================================
+  signaling:
+    build:
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile.signaling.dev
+    volumes:
+      - ../../crates/rdcs-signaling/src:/app/crates/rdcs-signaling/src
+      - ../../crates/rdcs-core/src:/app/crates/rdcs-core/src
+      - ../../crates/rdcs-crypto/src:/app/crates/rdcs-crypto/src
+      - ../../crates/rdcs-transport/src:/app/crates/rdcs-transport/src
+      - ../../crates/rdcs-connection/src:/app/crates/rdcs-connection/src
+    environment:
+      RUST_LOG: debug
+      SKIP_TLS: "true"
+      REDIS_URL: redis://redis:6379
+      SIGNALING_PORT: "8443"
+    restart: "no"
+    <<: *dev-logging
+
+  # ===========================================
+  # Relay Server - cargo-watch hot-reload
+  # ===========================================
+  relay:
+    build:
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile.relay.dev
+    volumes:
+      - ../../crates/rdcs-relay/src:/app/crates/rdcs-relay/src
+      - ../../crates/rdcs-core/src:/app/crates/rdcs-core/src
+      - ../../crates/rdcs-crypto/src:/app/crates/rdcs-crypto/src
+      - ../../crates/rdcs-transport/src:/app/crates/rdcs-transport/src
+    environment:
+      RUST_LOG: debug
+      RELAY_SLOTS: "48"
+      RELAY_MIN_PORT: "49152"
+      RELAY_MAX_PORT: "49200"
+    restart: "no"
+    <<: *dev-logging
+
+  # ===========================================
+  # Management API - air hot-reload
+  # ===========================================
+  api:
+    build:
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile.api.dev
+    volumes:
+      - ../../services/api:/app
+    environment:
+      LOG_LEVEL: debug
+      SKIP_TOTP: "true"
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_USER: rdcs
+      DB_PASSWORD: rdcs_dev
+      DB_NAME: rdcs
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      MINIO_ENDPOINT: minio:9000
+      MINIO_ACCESS_KEY: minioadmin
+      MINIO_SECRET_KEY: minioadmin_dev
+    restart: "no"
+    <<: *dev-logging
+
+  # ===========================================
+  # Web Admin Console - Vite HMR
+  # ===========================================
+  web:
+    build:
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile.web.dev
+    volumes:
+      - ../../web/admin/src:/app/src
+      - ../../web/admin/public:/app/public
+    environment:
+      VITE_API_BASE_URL: http://localhost:8080
+    restart: "no"
+    <<: *dev-logging
+
+  # ===========================================
+  # PostgreSQL - auto-init from migrations/
+  # ===========================================
+  postgres:
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ../../migrations/postgres:/docker-entrypoint-initdb.d
+    restart: "no"
+    <<: *dev-logging
+
+  # ===========================================
+  # Redis
+  # ===========================================
+  redis:
+    restart: "no"
+    <<: *dev-logging
+
+  # ===========================================
+  # MinIO
+  # ===========================================
+  minio:
+    restart: "no"
+    <<: *dev-logging

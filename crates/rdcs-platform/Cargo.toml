@@ -1,0 +1,10 @@
+[package]
+name = "rdcs-platform"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Platform abstraction traits for screen capture, input injection, audio, and more"
+
+[dependencies]
+thiserror = { workspace = true }
+serde = { workspace = true }

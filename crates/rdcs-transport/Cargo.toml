@@ -1,0 +1,22 @@
+[package]
+name = "rdcs-transport"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Reliable transport layer over UDP with NACK, FEC, and congestion control"
+
+[dependencies]
+tokio = { workspace = true }
+bytes = { workspace = true }
+thiserror = { workspace = true }
+serde = { workspace = true }
+tracing = { workspace = true }
+
+[dev-dependencies]
+rdcs-codec = { path = "../rdcs-codec", features = ["software-encoder"] }
+rdcs-platform = { path = "../rdcs-platform" }
+tracing-subscriber = { workspace = true }
+
+[features]
+# 透传给 rdcs-codec 的 feature
+software-encoder = []

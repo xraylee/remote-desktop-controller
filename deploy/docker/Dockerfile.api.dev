@@ -1,0 +1,25 @@
+# Copyright 2026 RDCS Contributors
+# SPDX-License-Identifier: Apache-2.0
+
+# RDCS Management API - Development Dockerfile (air hot-reload)
+# Build: docker build -f deploy/docker/Dockerfile.api.dev -t rdcs-api-dev .
+
+FROM golang:1.22-alpine
+
+RUN apk add --no-cache git gcc musl-dev
+
+# Install air for hot-reload
+RUN go install github.com/air-verse/air@latest
+
+WORKDIR /app
+
+# Cache module downloads
+COPY go.mod go.sum ./
+RUN go mod download
+
+# Copy source (will be overridden by volume mount in dev)
+COPY . .
+
+EXPOSE 8080
+
+CMD ["air", "-c", ".air.toml"]

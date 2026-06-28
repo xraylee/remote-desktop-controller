@@ -1,0 +1,23 @@
+# Copyright 2026 RDCS Contributors
+# SPDX-License-Identifier: Apache-2.0
+
+# RDCS Web Admin Console - Development Dockerfile (Vite dev server with HMR)
+# Build context: project root
+# Build: docker build -f deploy/docker/Dockerfile.web.dev -t rdcs-web-dev .
+
+FROM node:20-alpine
+
+WORKDIR /app
+
+# Install dependencies
+COPY web/admin/package.json web/admin/package-lock.json ./
+RUN npm install
+
+# Copy source (will be overridden by volume mount in dev for HMR)
+COPY web/admin/ .
+
+ENV VITE_API_BASE_URL=http://localhost:8080
+
+EXPOSE 3000
+
+CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0", "--port", "3000"]

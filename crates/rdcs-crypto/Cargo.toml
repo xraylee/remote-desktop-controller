@@ -1,0 +1,22 @@
+[package]
+name = "rdcs-crypto"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Encryption layer for RDCS: key exchange, AEAD, and session key management"
+
+[dependencies]
+zeroize = { workspace = true }
+thiserror = { workspace = true }
+serde = { workspace = true }
+serde_bytes = "0.11"
+rand = "0.8"
+x25519-dalek = { version = "2", features = ["static_secrets"] }
+salsa20 = "0.10"
+poly1305 = "0.8"
+subtle = "2"
+hkdf = "0.12"
+sha2 = "0.10"
+
+[dev-dependencies]
+serde_json = { workspace = true }

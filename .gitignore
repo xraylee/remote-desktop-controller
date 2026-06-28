@@ -1,0 +1,126 @@
+# ===========================
+# OS generated files
+# ===========================
+.DS_Store
+.DS_Store?
+._*
+Thumbs.db
+desktop.ini
+ehthumbs.db
+
+# ===========================
+# IDE / Editor files
+# ===========================
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.project
+.classpath
+.settings/
+*.sublime-project
+*.sublime-workspace
+
+# ===========================
+# Build artifacts
+# ===========================
+target/
+build/
+dist/
+*.o
+*.obj
+*.exe
+*.dll
+*.so
+*.dylib
+out/
+
+# ===========================
+# Node.js
+# ===========================
+node_modules/
+package-lock.json
+
+# ===========================
+# Rust
+# ===========================
+# target/ (already covered above)
+
+# ===========================
+# Go
+# ===========================
+vendor/
+
+# ===========================
+# Python
+# ===========================
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyc
+.venv/
+venv/
+*.egg-info/
+.eggs/
+
+# ===========================
+# Docker
+# ===========================
+docker-compose.override.yml
+
+# ===========================
+# Environment / secrets
+# ===========================
+.env
+.env.local
+.env.*.local
+*.key
+*.pem
+
+# ===========================
+# Project-specific
+# ===========================
+# Screenshots are stored in docs/images/ for documentation
+# This directory is a working copy used during research
+screenshots/
+
+# OpenSpec workspace (local planning tool, not versioned)
+openspec/
+
+# ===========================
+# Qoder / Claude workspace
+# ===========================
+.qoder/
+.claude/
+.superpowers/
+
+# ===========================
+# Flutter
+# ===========================
+client/flutter/.dart_tool/
+client/flutter/.flutter-plugins
+client/flutter/.flutter-plugins-dependencies
+client/flutter/.packages
+client/flutter/.pub-cache/
+client/flutter/.pub/
+client/flutter/build/
+
+# ===========================
+# Coverage
+# ===========================
+coverage/
+
+# ===========================
+# Logs
+# ===========================
+*.log
+
+# ===========================
+# Test outputs / temporary files
+# ===========================
+*.ppm
+*.stub
+*.raw
+*.yuv
+*.h264

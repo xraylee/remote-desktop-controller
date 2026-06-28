@@ -1,0 +1,62 @@
+# Copyright 2026 RDCS Contributors
+# SPDX-License-Identifier: Apache-2.0
+
+# RDCS - Caddy Reverse Proxy Configuration
+# Auto-HTTPS via Let's Encrypt, HSTS, and subdomain routing.
+
+{
+	# Use Let's Encrypt staging server for testing (remove for production)
+	# acme_ca https://acme-staging-v02.api.letsencrypt.org/directory
+
+	email {$CADDY_EMAIL}
+}
+
+# Signaling server - WebSocket + HTTPS
+signal.{$DOMAIN} {
+	reverse_proxy signaling:8443
+
+	header {
+		Strict-Transport-Security "max-age=63072000; includeSubDomains; preload"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+	}
+
+	log {
+		output stdout
+		format json
+	}
+}
+
+# Management API - REST endpoints
+api.{$DOMAIN} {
+	reverse_proxy api:8080
+
+	header {
+		Strict-Transport-Security "max-age=63072000; includeSubDomains; preload"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+	}
+
+	log {
+		output stdout
+		format json
+	}
+}
+
+# Web Admin Console - React SPA
+admin.{$DOMAIN} {
+	reverse_proxy web:3000
+
+	header {
+		Strict-Transport-Security "max-age=63072000; includeSubDomains; preload"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+	}
+
+	encode gzip
+
+	log {
+		output stdout
+		format json
+	}
+}

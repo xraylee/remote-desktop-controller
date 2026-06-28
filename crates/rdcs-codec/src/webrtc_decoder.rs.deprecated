@@ -1,0 +1,299 @@
+// Copyright 2026 RDCS Contributors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+
+//! WebRTC-based H.264 decoder implementation.
+
+use std::time::Instant;
+
+use crate::{CodecError, Result};
+use crate::encoder::{CodecType, EncodedFrame};
+use crate::decoder::{DecodedFrame, DecoderConfig, VideoDecoder};
+
+// ---------------------------------------------------------------------------
+// WebRTC Decoder Implementation
+// ---------------------------------------------------------------------------
+
+/// WebRTC H.264 decoder wrapper.
+///
+/// This decoder uses hardware-accelerated decoding when available:
+/// - macOS: VideoToolbox
+/// - Windows: DXVA2
+/// - Linux: VA-API
+#[derive(Debug)]
+pub struct WebRtcDecoder {
+    configured: bool,
+    frame_count: u64,
+
+    // Performance metrics
+    total_decode_time_us: u64,
+    total_decoded_bytes: u64,
+
+    // TODO: Real WebRTC decoder instance will go here
+    // decoder_handle: Option<*mut WebRtcDecoderHandle>,
+}
+
+impl WebRtcDecoder {
+    /// Create a new unconfigured WebRTC decoder.
+    pub fn new() -> Self {
+        Self {
+            configured: false,
+            frame_count: 0,
+            total_decode_time_us: 0,
+            total_decoded_bytes: 0,
+        }
+    }
+
+    /// Get decoding performance metrics.
+    pub fn metrics(&self) -> DecoderMetrics {
+        let avg_decode_time_us = if self.frame_count > 0 {
+            self.total_decode_time_us / self.frame_count
+        } else {
+            0
+        };
+
+        DecoderMetrics {
+            frames_decoded: self.frame_count,
+            avg_decode_time_us,
+            total_decoded_bytes: self.total_decoded_bytes,
+        }
+    }
+}
+
+impl Default for WebRtcDecoder {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl VideoDecoder for WebRtcDecoder {
+    fn configure(&mut self, config: DecoderConfig) -> Result<()> {
+        tracing::info!("Configuring WebRTC decoder: codec={:?}", config.codec);
+
+        // Check codec support
+        match config.codec {
+            CodecType::H264 => {
+                // H.264 is always supported
+            }
+            CodecType::H265 => {
+                #[cfg(not(target_os = "macos"))]
+                return Err(CodecError::NotAvailable(
+                    "H.265 hardware decoding only available on macOS".into(),
+                ));
+            }
+            CodecType::Vp9 | CodecType::Av1 => {
+                return Err(CodecError::NotAvailable(
+                    format!("{:?} not yet implemented", config.codec),
+                ));
+            }
+        }
+
+        // TODO: Initialize real WebRTC decoder here
+        self.configured = true;
+        self.frame_count = 0;
+        self.total_decode_time_us = 0;
+        self.total_decoded_bytes = 0;
+
+        tracing::info!("WebRTC decoder configured successfully");
+        Ok(())
+    }
+
+    fn decode(&mut self, frame: &EncodedFrame) -> Result<DecodedFrame> {
+        if !self.configured {
+            return Err(CodecError::NotConfigured);
+        }
+
+        let decode_start = Instant::now();
+
+        tracing::trace!(
+            "Decoding frame {}: size={} bytes, is_keyframe={}",
+            self.frame_count,
+            frame.data.len(),
+            frame.is_keyframe
+        );
+
+        // TODO: Replace with real WebRTC decoding
+        let decoded_data = simulate_h264_decoding(frame)?;
+
+        let decode_time = decode_start.elapsed();
+        self.total_decode_time_us += decode_time.as_micros() as u64;
+        self.total_decoded_bytes += decoded_data.len() as u64;
+        self.frame_count += 1;
+
+        tracing::trace!(
+            "Frame {} decoded: size={} bytes, time={:?}",
+            self.frame_count - 1,
+            decoded_data.len(),
+            decode_time
+        );
+
+        Ok(DecodedFrame {
+            data: decoded_data,
+            width: frame.width,
+            height: frame.height,
+            stride: frame.width * 4,
+            pts_us: frame.pts_us,
+        })
+    }
+
+    fn reset(&mut self) -> Result<()> {
+        tracing::debug!("Resetting WebRTC decoder");
+        self.frame_count = 0;
+        self.total_decode_time_us = 0;
+        self.total_decoded_bytes = 0;
+        Ok(())
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Performance Metrics
+// ---------------------------------------------------------------------------
+
+/// Decoder performance metrics for debugging and optimization.
+#[derive(Debug, Clone)]
+pub struct DecoderMetrics {
+    /// Total number of frames decoded.
+    pub frames_decoded: u64,
+    /// Average decode time per frame in microseconds.
+    pub avg_decode_time_us: u64,
+    /// Total bytes decoded.
+    pub total_decoded_bytes: u64,
+}
+
+impl DecoderMetrics {
+    /// Check if decoding performance meets PRD requirements.
+    ///
+    /// Decode should be faster than encode, target < 3ms
+    pub fn meets_prd_requirements(&self) -> bool {
+        const MAX_DECODE_TIME_US: u64 = 3_000; // 3ms
+        self.avg_decode_time_us < MAX_DECODE_TIME_US
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Temporary simulation (will be replaced with real WebRTC)
+// ---------------------------------------------------------------------------
+
+/// Simulate H.264 decoding for testing purposes.
+///
+/// This is a temporary placeholder.
+/// Real implementation will use libwebrtc's VideoDecoder.
+fn simulate_h264_decoding(frame: &EncodedFrame) -> Result<Vec<u8>> {
+    // Parse simulated header
+    if frame.data.len() < 20 {
+        return Err(CodecError::DecodeError("Invalid frame data".into()));
+    }
+
+    // Check for H.264 start code
+    if &frame.data[0..4] != &[0x00, 0x00, 0x00, 0x01] {
+        return Err(CodecError::DecodeError("Invalid H.264 start code".into()));
+    }
+
+    // Create decoded frame (BGRA format)
+    let stride = frame.width * 4;
+    let data_size = (stride * frame.height) as usize;
+    let data = vec![42u8; data_size];
+
+    Ok(data)
+}
+
+// ---------------------------------------------------------------------------
+// Tests
+// ---------------------------------------------------------------------------
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn make_test_encoded_frame(w: u32, h: u32, is_keyframe: bool) -> EncodedFrame {
+        // Create simulated H.264 frame
+        let mut data = Vec::new();
+        data.extend_from_slice(&[0x00, 0x00, 0x00, 0x01]); // Start code
+        data.push(0x67); // NAL type
+        data.extend_from_slice(&w.to_le_bytes());
+        data.extend_from_slice(&h.to_le_bytes());
+        data.extend_from_slice(&0u64.to_le_bytes()); // timestamp
+        data.resize(1000, 0); // Simulated payload
+
+        EncodedFrame {
+            data,
+            is_keyframe,
+            pts_us: 0,
+            dts_us: 0,
+            codec: CodecType::H264,
+            width: w,
+            height: h,
+        }
+    }
+
+    #[test]
+    fn webrtc_decoder_not_configured() {
+        let mut decoder = WebRtcDecoder::new();
+        let frame = make_test_encoded_frame(1920, 1080, true);
+        let result = decoder.decode(&frame);
+        assert!(result.is_err());
+        assert!(matches!(result.unwrap_err(), CodecError::NotConfigured));
+    }
+
+    #[test]
+    fn webrtc_decoder_configure() {
+        let mut decoder = WebRtcDecoder::new();
+        assert!(decoder.configure(DecoderConfig {
+            codec: CodecType::H264,
+            width: 1920,
+            height: 1080,
+        }).is_ok());
+    }
+
+    #[test]
+    fn webrtc_decoder_decode_single_frame() {
+        let mut decoder = WebRtcDecoder::new();
+        decoder.configure(DecoderConfig {
+            codec: CodecType::H264,
+            width: 1920,
+            height: 1080,
+        }).unwrap();
+
+        let encoded = make_test_encoded_frame(1920, 1080, true);
+        let decoded = decoder.decode(&encoded).unwrap();
+
+        assert_eq!(decoded.width, 1920);
+        assert_eq!(decoded.height, 1080);
+        assert_eq!(decoded.stride, 1920 * 4);
+        assert!(!decoded.data.is_empty());
+    }
+
+    #[test]
+    fn webrtc_decoder_metrics() {
+        let mut decoder = WebRtcDecoder::new();
+        decoder.configure(DecoderConfig {
+            codec: CodecType::H264,
+            width: 1920,
+            height: 1080,
+        }).unwrap();
+
+        let frame = make_test_encoded_frame(1920, 1080, true);
+
+        // Decode 10 frames
+        for _ in 0..10 {
+            decoder.decode(&frame).unwrap();
+        }
+
+        let metrics = decoder.metrics();
+        assert_eq!(metrics.frames_decoded, 10);
+        assert!(metrics.avg_decode_time_us > 0);
+        assert!(metrics.total_decoded_bytes > 0);
+    }
+
+    #[test]
+    fn decoder_metrics_prd_check() {
+        let metrics = DecoderMetrics {
+            frames_decoded: 100,
+            avg_decode_time_us: 2_000, // 2ms - should pass
+            total_decoded_bytes: 10_000_000,
+        };
+
+        assert!(metrics.meets_prd_requirements());
+    }
+}

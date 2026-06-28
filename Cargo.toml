@@ -1,0 +1,55 @@
+[workspace]
+members = ["crates/*"]
+resolver = "2"
+
+[workspace.package]
+edition = "2021"
+license = "Apache-2.0"
+version = "0.1.0"
+
+[workspace.dependencies]
+tokio = { version = "1", features = ["full"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+thiserror = "2"
+anyhow = "1"
+zeroize = { version = "1", features = ["derive"] }
+bytes = "1"
+uuid = { version = "1", features = ["v4", "serde"] }
+
+# WebRTC 编解码器已迁移至方案 B（webrtc-rs + 平台原生）
+# libwebrtc 依赖已移除，详见 docs/decisions/WEBRTC_CODEC_INTEGRATION_DECISION.md
+
+# Root package exists solely for workspace-level integration tests.
+[package]
+name = "rdcs-integration-tests"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish = false
+
+[lib]
+path = "src/lib.rs"
+
+[dev-dependencies]
+rdcs-core = { path = "crates/rdcs-core" }
+rdcs-platform = { path = "crates/rdcs-platform" }
+rdcs-codec = { path = "crates/rdcs-codec" }
+rdcs-crypto = { path = "crates/rdcs-crypto" }
+rdcs-transport = { path = "crates/rdcs-transport" }
+rdcs-transfer = { path = "crates/rdcs-transfer" }
+rdcs-ffi = { path = "crates/rdcs-ffi" }
+rdcs-connection = { path = "crates/rdcs-connection" }
+rdcs-nat-test = { path = "crates/rdcs-nat-test" }
+rdcs-signaling = { path = "crates/rdcs-signaling" }
+rdcs-session = { path = "crates/rdcs-session" }
+tokio = { workspace = true }
+serde_json = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+futures-util = "0.3"
+rand = "0.8"
+anyhow = { workspace = true }
+tempfile = "3"

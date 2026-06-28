@@ -1,0 +1,19 @@
+[package]
+name = "rdcs-ffi"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "C ABI bridge for Flutter/Dart integration with the RDCS Rust engine"
+
+[lib]
+crate-type = ["cdylib", "staticlib", "rlib"]
+
+[dependencies]
+tokio = { workspace = true }
+rdcs-core = { path = "../rdcs-core" }
+rdcs-platform = { path = "../rdcs-platform" }
+rdcs-crypto = { path = "../rdcs-crypto" }
+rdcs-transport = { path = "../rdcs-transport" }
+rdcs-codec = { path = "../rdcs-codec" }
+rdcs-connection = { path = "../rdcs-connection" }
+rdcs-transfer = { path = "../rdcs-transfer" }

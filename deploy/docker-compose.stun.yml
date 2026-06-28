@@ -1,0 +1,69 @@
+// Copyright 2026 RDCS Contributors
+// SPDX-License-Identifier: Apache-2.0
+
+//! Docker Compose configuration for STUN/TURN test servers.
+
+version: '3.8'
+
+services:
+  # Primary STUN server
+  stun-server:
+    image: coturn/coturn:latest
+    container_name: rdcs-stun-server
+    restart: unless-stopped
+    network_mode: host
+    command:
+      - -n
+      - --log-file=stdout
+      - --listening-port=3478
+      - --fingerprint
+      - --lt-cred-mech
+      - --realm=rdcs.io
+      - --no-auth
+      - --verbose
+    environment:
+      - DETECT_EXTERNAL_IP=yes
+
+  # TURN relay server (us-west simulation)
+  turn-server:
+    image: coturn/coturn:latest
+    container_name: rdcs-turn-server
+    restart: unless-stopped
+    network_mode: host
+    command:
+      - -n
+      - --log-file=stdout
+      - --listening-port=3478
+      - --fingerprint
+      - --lt-cred-mech
+      - --realm=rdcs.io
+      - --user=rdcs-user:rdcs-test-password
+      - --min-port=49152
+      - --max-port=65535
+      - --max-bps=2000000
+      - --bps-capacity=4000000
+      - --user-quota=10
+      - --total-quota=100
+      - --verbose
+    environment:
+      - DETECT_EXTERNAL_IP=yes
+    volumes:
+      - ./turnserver.log:/var/log/turnserver.log
+
+  # Health check service
+  healthcheck:
+    image: alpine:latest
+    container_name: rdcs-healthcheck
+    restart: unless-stopped
+    depends_on:
+      - stun-server
+      - turn-server
+    command: >
+      sh -c "
+        apk add --no-cache curl &&
+        while true; do
+          echo 'Checking STUN server...' &&
+          nc -uz localhost 3478 && echo 'STUN OK' || echo 'STUN FAIL' &&
+          sleep 60
+        done
+      "

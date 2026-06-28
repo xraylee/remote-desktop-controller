@@ -1,0 +1,41 @@
+[package]
+name = "rdcs-codec"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Video encoding/decoding pipeline with adaptive quality for RDCS"
+
+[features]
+default = []
+hardware-accel = []
+software-encoder = ["openh264"]
+
+[dependencies]
+thiserror = { workspace = true }
+serde = { workspace = true }
+rdcs-platform = { path = "../rdcs-platform" }
+tracing = { workspace = true }
+tokio = { workspace = true }
+# libwebrtc 已移除 - 迁移至 webrtc-rs + 平台原生编解码（方案 B）
+futures-util = "0.3"
+bytes = { workspace = true }
+rand = "0.8"
+sha2 = "0.10"
+
+# WebRTC RTP/SRTP 传输层
+webrtc = "0.11"
+webrtc-util = "0.9"
+webrtc-srtp = "0.13"
+
+# 软件编码器（可选）
+openh264 = { version = "0.6", optional = true }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+core-foundation = "0.9"
+core-foundation-sys = "0.8"
+
+[target.'cfg(target_os = "windows")'.dependencies]
+windows = { version = "0.58", features = ["Win32_Media_MediaFoundation"] }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+# VA-API dependencies (to be added when implementing)

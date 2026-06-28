@@ -1,0 +1,186 @@
+# Copyright 2026 RDCS Contributors
+# SPDX-License-Identifier: Apache-2.0
+
+# RDCS - Docker Compose Production Overrides
+# Usage: docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+# Or simply: make prod
+
+x-prod-security: &prod-security
+  read_only: true
+  tmpfs:
+    - /tmp
+  security_opt:
+    - no-new-privileges:true
+
+x-prod-logging: &prod-logging
+  logging:
+    driver: json-file
+    options:
+      max-size: "10m"
+      max-file: "5"
+
+services:
+  # ===========================================
+  # Signaling Server - production hardened
+  # ===========================================
+  signaling:
+    environment:
+      RUST_LOG: info
+      # SKIP_TLS=true: Caddy terminates TLS; backends use plain HTTP internally
+      SKIP_TLS: "true"
+      REDIS_URL: redis://redis:6379
+      SIGNALING_PORT: "8443"
+    restart: unless-stopped
+    <<: [*prod-security, *prod-logging]
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 1G
+
+  # ===========================================
+  # Relay Server - production hardened
+  # ===========================================
+  relay:
+    environment:
+      RUST_LOG: info
+      RELAY_SLOTS: "48"
+      RELAY_MIN_PORT: "49152"
+      RELAY_MAX_PORT: "49200"
+    restart: unless-stopped
+    <<: [*prod-security, *prod-logging]
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 2G
+
+  # ===========================================
+  # Management API - production hardened
+  # ===========================================
+  api:
+    environment:
+      LOG_LEVEL: info
+      SKIP_TOTP: "false"
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_USER: rdcs
+      DB_PASSWORD: ${POSTGRES_PASSWORD}
+      DB_NAME: rdcs
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      MINIO_ENDPOINT: minio:9000
+      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD}
+    restart: unless-stopped
+    <<: [*prod-security, *prod-logging]
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 512M
+
+  # ===========================================
+  # Web Admin Console - production hardened
+  # ===========================================
+  web:
+    read_only: true
+    tmpfs:
+      - /tmp
+      - /var/cache/nginx
+      - /var/run
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
+    <<: *prod-logging
+    deploy:
+      resources:
+        limits:
+          cpus: "0.25"
+          memory: 256M
+
+  # ===========================================
+  # PostgreSQL - internal only (no host port)
+  # ===========================================
+  postgres:
+    environment:
+      POSTGRES_DB: rdcs
+      POSTGRES_USER: rdcs
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    ports: []
+    restart: unless-stopped
+    <<: *prod-logging
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 1G
+
+  # ===========================================
+  # Redis - internal only (no host port)
+  # ===========================================
+  redis:
+    ports: []
+    restart: unless-stopped
+    <<: *prod-logging
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 512M
+
+  # ===========================================
+  # MinIO - console only, API internal
+  # ===========================================
+  minio:
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    ports:
+      - "${MINIO_CONSOLE_PORT:-9001}:9001"
+    restart: unless-stopped
+    <<: *prod-logging
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 1G
+
+  # ===========================================
+  # Caddy - Reverse proxy with auto-TLS
+  # ===========================================
+  caddy:
+    image: caddy:2.8-alpine
+    container_name: rdcs-caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    environment:
+      DOMAIN: ${DOMAIN}
+      CADDY_EMAIL: ${CADDY_EMAIL}
+    networks:
+      - rdcs-net
+    <<: *prod-logging
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 256M
+
+volumes:
+  pgdata:
+    driver: local
+  redis_data:
+    driver: local
+  minio_data:
+    driver: local
+  caddy_data:
+    driver: local
+  caddy_config:
+    driver: local

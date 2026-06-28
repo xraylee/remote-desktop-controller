@@ -1,0 +1,695 @@
+// Copyright 2026 RDCS Contributors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+
+//! WebRTC PeerConnection lifecycle management for RDCS.
+//!
+//! This module wraps libwebrtc's PeerConnection to provide a high-level
+//! async API for SDP negotiation, ICE candidate exchange, and video frame
+//! push/pull. It bridges the gap between the synchronous VideoEncoder /
+//! VideoDecoder traits and WebRTC's internally-driven encoding pipeline.
+//!
+//! # Architecture
+//!
+//! ```text
+//!  Sender side:
+//!    CapturedFrame (BGRA) → argb_to_i420 → VideoFrame<I420Buffer>
+//!      → NativeVideoSource::capture_frame()
+//!      → PeerConnection (internal encode + transport)
+//!
+//!  Receiver side:
+//!    PeerConnection (internal decode)
+//!      → on_track callback → NativeVideoStream
+//!      → poll_recv_frame() → i420_to_bgra → DecodedFrame (BGRA)
+//! ```
+
+use std::sync::Arc;
+use std::time::Instant;
+
+use libwebrtc::native::yuv_helper;
+use libwebrtc::peer_connection::TrackEvent;
+use libwebrtc::peer_connection_factory::native::PeerConnectionFactoryExt;
+use libwebrtc::prelude::*;
+use libwebrtc::video_source::native::NativeVideoSource;
+use libwebrtc::video_stream::native::{NativeVideoStream, NativeVideoStreamOptions};
+use tokio::sync::mpsc;
+
+use rdcs_platform::CapturedFrame;
+
+use crate::decoder::{DecodedFrame, DecoderConfig};
+use crate::encoder::{CodecType, EncodedFrame, EncoderConfig};
+use crate::{CodecError, Result};
+
+// ---------------------------------------------------------------------------
+// Session state
+// ---------------------------------------------------------------------------
+
+/// State of a WebRTC session.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WebRtcSessionState {
+    /// Session created but PeerConnection not initialized.
+    New,
+    /// SDP offer created, waiting for answer.
+    OfferCreated,
+    /// SDP negotiation complete, ICE connecting.
+    Connecting,
+    /// PeerConnection established, media flowing.
+    Connected,
+    /// Session has been closed.
+    Closed,
+}
+
+// ---------------------------------------------------------------------------
+// WebRtcSession
+// ---------------------------------------------------------------------------
+
+/// Manages a full WebRTC session: PeerConnection lifecycle, SDP negotiation,
+/// ICE candidate exchange, and video frame I/O.
+///
+/// This is the primary integration point between RDCS and libwebrtc.
+/// It replaces the mock encode/decode path with a real WebRTC media pipeline.
+pub struct WebRtcSession {
+    factory: Option<PeerConnectionFactory>,
+    peer_connection: Option<PeerConnection>,
+    video_source: Option<NativeVideoSource>,
+    /// Channel receiver for incoming remote video tracks (from on_track callback).
+    video_track_rx: Option<mpsc::Receiver<RtcVideoTrack>>,
+    /// Lazily created video stream from the received remote track.
+    video_stream: Option<NativeVideoStream>,
+    state: WebRtcSessionState,
+    encoder_config: Option<EncoderConfig>,
+    decoder_config: Option<DecoderConfig>,
+
+    // Metrics
+    frames_sent: u64,
+    frames_received: u64,
+    start_time: Option<Instant>,
+}
+
+impl WebRtcSession {
+    /// Create a new WebRTC session (not yet initialized).
+    pub fn new() -> Self {
+        Self {
+            factory: None,
+            peer_connection: None,
+            video_source: None,
+            video_track_rx: None,
+            video_stream: None,
+            state: WebRtcSessionState::New,
+            encoder_config: None,
+            decoder_config: None,
+            frames_sent: 0,
+            frames_received: 0,
+            start_time: None,
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    // Initialization
+    // -----------------------------------------------------------------------
+
+    /// Initialize the PeerConnection with ICE server configuration.
+    ///
+    /// Creates the PeerConnection, a NativeVideoSource for pushing frames,
+    /// a video track, and adds it to the PeerConnection. Sets up the
+    /// on_track callback to forward incoming video to a channel.
+    pub async fn initialize(
+        &mut self,
+        ice_servers: Vec<IceServer>,
+        resolution: VideoResolution,
+        is_screencast: bool,
+        hardware_accel: bool,
+    ) -> Result<()> {
+        // Create factory lazily.
+        let factory = PeerConnectionFactory::default();
+
+        let config = RtcConfiguration {
+            ice_servers,
+            ..RtcConfiguration::default()
+        };
+
+        let pc = factory
+            .create_peer_connection(config)
+            .map_err(|e| CodecError::Platform(rdcs_platform::PlatformError::ApiError(e.message)))?;
+
+        // Create video source and track.
+        let res_w = resolution.width;
+        let res_h = resolution.height;
+        let source = NativeVideoSource::new(resolution, is_screencast);
+        let video_track = factory.create_video_track("rdcs-video", source.clone());
+
+        // Set encoder backend preference.
+        let media_track = MediaStreamTrack::from(video_track.clone());
+        let sender = pc
+            .add_track(media_track, &["rdcs-stream"])
+            .map_err(|e| CodecError::Platform(rdcs_platform::PlatformError::ApiError(e.message)))?;
+
+        if hardware_accel {
+            sender.set_video_encoder_backend(VideoEncoderBackend::Auto);
+        } else {
+            sender.set_video_encoder_backend(VideoEncoderBackend::Software);
+        }
+
+        // Channel for forwarding incoming remote video tracks from the on_track callback.
+        // We use std::sync::Mutex since the callback is synchronous (not async).
+        let (track_tx, track_rx) = mpsc::channel::<RtcVideoTrack>(1);
+        let track_tx = Arc::new(std::sync::Mutex::new(track_tx));
+
+        // Register on_track callback: when the remote peer adds a video track,
+        // forward the RtcVideoTrack through the channel.
+        pc.on_track(Some(Box::new(move |event: TrackEvent| {
+            if let MediaStreamTrack::Video(rtc_video_track) = event.track {
+                if let Ok(guard) = track_tx.lock() {
+                    let _ = guard.try_send(rtc_video_track);
+                }
+            }
+        })));
+
+        self.factory = Some(factory);
+        self.peer_connection = Some(pc);
+        self.video_source = Some(source);
+        self.video_track_rx = Some(track_rx);
+        self.video_stream = None;
+        self.start_time = Some(Instant::now());
+
+        tracing::info!(
+            "WebRTC session initialized: {}x{}, screencast={}, hw_accel={}",
+            res_w,
+            res_h,
+            is_screencast,
+            hardware_accel
+        );
+
+        Ok(())
+    }
+
+    // -----------------------------------------------------------------------
+    // SDP negotiation
+    // -----------------------------------------------------------------------
+
+    /// Create an SDP offer and set it as the local description.
+    ///
+    /// Returns the SDP string to be sent to the remote peer via signaling.
+    pub async fn create_offer(&mut self) -> Result<String> {
+        let pc = self.peer_connection.as_ref().ok_or(CodecError::NotConfigured)?;
+
+        let options = OfferOptions {
+            offer_to_receive_video: true,
+            ..OfferOptions::default()
+        };
+
+        let offer = pc
+            .create_offer(options)
+            .await
+            .map_err(|e| CodecError::Platform(rdcs_platform::PlatformError::ApiError(e.message)))?;
+
+        let sdp_string = offer.to_string();
+
+        pc.set_local_description(offer)
+            .await
+            .map_err(|e| CodecError::Platform(rdcs_platform::PlatformError::ApiError(e.message)))?;
+
+        self.state = WebRtcSessionState::OfferCreated;
+        tracing::info!("SDP offer created ({} bytes)", sdp_string.len());
+
+        Ok(sdp_string)
+    }
+
+    /// Handle a remote SDP answer.
+    ///
+    /// Parses the SDP string and sets it as the remote description.
+    pub async fn handle_answer(&mut self, sdp: &str) -> Result<()> {
+        let pc = self.peer_connection.as_ref().ok_or(CodecError::NotConfigured)?;
+
+        let answer = SessionDescription::parse(sdp, SdpType::Answer)
+            .map_err(|e| CodecError::InvalidConfig(format!("SDP parse error: {}", e)))?;
+
+        pc.set_remote_description(answer)
+            .await
+            .map_err(|e| CodecError::Platform(rdcs_platform::PlatformError::ApiError(e.message)))?;
+
+        self.state = WebRtcSessionState::Connecting;
+        tracing::info!("SDP answer applied, transitioning to Connecting");
+
+        Ok(())
+    }
+
+    /// Handle a remote SDP offer and create an answer.
+    ///
+    /// Returns the SDP answer string to be sent back via signaling.
+    pub async fn handle_offer_and_answer(&mut self, sdp: &str) -> Result<String> {
+        let pc = self.peer_connection.as_ref().ok_or(CodecError::NotConfigured)?;
+
+        let offer = SessionDescription::parse(sdp, SdpType::Offer)
+            .map_err(|e| CodecError::InvalidConfig(format!("SDP parse error: {}", e)))?;
+
+        pc.set_remote_description(offer)
+            .await
+            .map_err(|e| CodecError::Platform(rdcs_platform::PlatformError::ApiError(e.message)))?;
+
+        let answer = pc
+            .create_answer(AnswerOptions {})
+            .await
+            .map_err(|e| CodecError::Platform(rdcs_platform::PlatformError::ApiError(e.message)))?;
+
+        let sdp_string = answer.to_string();
+
+        pc.set_local_description(answer)
+            .await
+            .map_err(|e| CodecError::Platform(rdcs_platform::PlatformError::ApiError(e.message)))?;
+
+        self.state = WebRtcSessionState::Connecting;
+        tracing::info!("SDP answer created ({} bytes)", sdp_string.len());
+
+        Ok(sdp_string)
+    }
+
+    /// Add a remote ICE candidate received via signaling.
+    pub async fn add_ice_candidate(
+        &self,
+        sdp_mid: &str,
+        sdp_mline_index: i32,
+        candidate: &str,
+    ) -> Result<()> {
+        let pc = self.peer_connection.as_ref().ok_or(CodecError::NotConfigured)?;
+
+        let ice = IceCandidate::parse(sdp_mid, sdp_mline_index, candidate)
+            .map_err(|e| CodecError::InvalidConfig(format!("ICE candidate parse error: {}", e)))?;
+
+        pc.add_ice_candidate(ice)
+            .await
+            .map_err(|e| CodecError::Platform(rdcs_platform::PlatformError::ApiError(e.message)))?;
+
+        Ok(())
+    }
+
+    /// Register a callback for local ICE candidate generation.
+    ///
+    /// The callback is invoked by libwebrtc whenever a new ICE candidate
+    /// is gathered. The caller should forward these to the remote peer
+    /// via the signaling server.
+    pub fn on_ice_candidate<F>(&self, callback: F) -> Result<()>
+    where
+        F: FnMut(IceCandidate) + Send + Sync + 'static,
+    {
+        let pc = self.peer_connection.as_ref().ok_or(CodecError::NotConfigured)?;
+        pc.on_ice_candidate(Some(Box::new(callback)));
+        Ok(())
+    }
+
+    /// Register a callback for connection state changes.
+    pub fn on_connection_state_change<F>(&self, callback: F) -> Result<()>
+    where
+        F: FnMut(PeerConnectionState) + Send + Sync + 'static,
+    {
+        let pc = self.peer_connection.as_ref().ok_or(CodecError::NotConfigured)?;
+        pc.on_connection_state_change(Some(Box::new(callback)));
+        Ok(())
+    }
+
+    // -----------------------------------------------------------------------
+    // Video frame I/O
+    // -----------------------------------------------------------------------
+
+    /// Push a captured frame into the WebRTC pipeline.
+    ///
+    /// Converts the BGRA captured frame to I420 and pushes it through
+    /// the NativeVideoSource. The PeerConnection handles encoding and
+    /// transport internally.
+    ///
+    /// Returns an EncodedFrame with metadata (the actual encoded data
+    /// lives inside WebRTC's transport, not in the returned struct).
+    pub fn send_frame(&mut self, frame: &CapturedFrame) -> Result<EncodedFrame> {
+        let source = self
+            .video_source
+            .as_ref()
+            .ok_or(CodecError::NotConfigured)?;
+        let config = self.encoder_config.as_ref().ok_or(CodecError::NotConfigured)?;
+
+        let width = frame.width;
+        let height = frame.height;
+
+        // Allocate I420 buffer.
+        let mut i420_buf = I420Buffer::new(width, height);
+        {
+            let (stride_y, stride_u, stride_v) = i420_buf.strides();
+            let (y, u, v) = i420_buf.data_mut();
+
+            // Convert BGRA → I420.
+            yuv_helper::argb_to_i420(
+                &frame.data,
+                frame.stride,
+                y,
+                stride_y,
+                u,
+                stride_u,
+                v,
+                stride_v,
+                width as i32,
+                height as i32,
+            );
+        }
+
+        // Create VideoFrame and push to source.
+        let video_frame = VideoFrame::new(libwebrtc::prelude::VideoRotation::VideoRotation0, i420_buf);
+        source.capture_frame(&video_frame);
+
+        let is_keyframe = self.frames_sent % config.keyframe_interval as u64 == 0;
+        self.frames_sent += 1;
+
+        // Return metadata-only EncodedFrame. The actual encoded bitstream
+        // is inside WebRTC's transport layer.
+        Ok(EncodedFrame {
+            data: Vec::new(), // WebRTC handles the actual encoding
+            is_keyframe,
+            pts_us: frame.timestamp_us,
+            dts_us: frame.timestamp_us,
+            codec: config.codec,
+            width,
+            height,
+        })
+    }
+
+    /// Poll for a decoded frame from the remote video stream.
+    ///
+    /// Receives a VideoFrame from the NativeVideoStream (if available),
+    /// converts I420 → BGRA, and returns a DecodedFrame.
+    ///
+    /// Returns `Ok(None)` if no frame is currently available.
+    pub async fn poll_recv_frame(&mut self) -> Result<Option<DecodedFrame>> {
+        use futures_util::{FutureExt, StreamExt};
+
+        // Lazily create NativeVideoStream from the first received track.
+        if self.video_stream.is_none() {
+            if let Some(rx) = self.video_track_rx.as_mut() {
+                match rx.try_recv() {
+                    Ok(video_track) => {
+                        let stream = NativeVideoStream::with_options(
+                            video_track,
+                            NativeVideoStreamOptions {
+                                queue_size_frames: Some(2),
+                            },
+                        );
+                        self.video_stream = Some(stream);
+                        tracing::info!("Remote video track received, stream created");
+                    }
+                    Err(mpsc::error::TryRecvError::Empty) => return Ok(None),
+                    Err(mpsc::error::TryRecvError::Disconnected) => {
+                        return Err(CodecError::DecodeError(
+                            "Video track channel closed".into(),
+                        ));
+                    }
+                }
+            } else {
+                return Ok(None);
+            }
+        }
+
+        // Poll the video stream for the next frame.
+        if let Some(stream) = self.video_stream.as_mut() {
+            match stream.next().now_or_never() {
+                Some(Some(video_frame)) => {
+                    let decoded = self.decode_video_frame(&video_frame)?;
+                    Ok(Some(decoded))
+                }
+                Some(None) => {
+                    // Stream ended.
+                    self.video_stream = None;
+                    Ok(None)
+                }
+                None => Ok(None), // No frame available yet.
+            }
+        } else {
+            Ok(None)
+        }
+    }
+
+    /// Decode an I420 VideoFrame into a BGRA DecodedFrame.
+    ///
+    /// This is a utility method for converting frames received from
+    /// NativeVideoStream into the format expected by the renderer.
+    pub fn decode_video_frame(
+        &mut self,
+        frame: &libwebrtc::prelude::BoxVideoFrame,
+    ) -> Result<DecodedFrame> {
+        let buffer = &frame.buffer;
+        let width = buffer.width();
+        let height = buffer.height();
+
+        // Convert to I420 if needed.
+        let i420 = buffer.to_i420();
+        let (src_y, src_u, src_v) = i420.data();
+        let (stride_y, stride_u, stride_v) = i420.strides();
+
+        // Allocate BGRA output buffer.
+        let dst_stride = width * 4;
+        let dst_size = (dst_stride * height) as usize;
+        let mut dst = vec![0u8; dst_size];
+
+        // Convert I420 → BGRA (argb in libwebrtc terminology is actually BGRA byte order).
+        yuv_helper::i420_to_bgra(
+            src_y,
+            stride_y,
+            src_u,
+            stride_u,
+            src_v,
+            stride_v,
+            &mut dst,
+            dst_stride,
+            width as i32,
+            height as i32,
+        );
+
+        self.frames_received += 1;
+
+        Ok(DecodedFrame {
+            data: dst,
+            width,
+            height,
+            stride: dst_stride,
+            pts_us: frame.timestamp_us as u64,
+        })
+    }
+
+    // -----------------------------------------------------------------------
+    // Configuration
+    // -----------------------------------------------------------------------
+
+    /// Set the encoder configuration for the sending side.
+    pub fn set_encoder_config(&mut self, config: EncoderConfig) {
+        self.encoder_config = Some(config);
+    }
+
+    /// Set the decoder configuration for the receiving side.
+    pub fn set_decoder_config(&mut self, config: DecoderConfig) {
+        self.decoder_config = Some(config);
+    }
+
+    // -----------------------------------------------------------------------
+    // State and metrics
+    // -----------------------------------------------------------------------
+
+    /// Return the current session state.
+    pub fn state(&self) -> WebRtcSessionState {
+        self.state
+    }
+
+    /// Return the PeerConnection's connection state, if available.
+    pub fn connection_state(&self) -> Option<PeerConnectionState> {
+        self.peer_connection.as_ref().map(|pc| pc.connection_state())
+    }
+
+    /// Return the ICE connection state, if available.
+    pub fn ice_connection_state(&self) -> Option<IceConnectionState> {
+        self.peer_connection
+            .as_ref()
+            .map(|pc| pc.ice_connection_state())
+    }
+
+    /// Return the ICE gathering state, if available.
+    pub fn ice_gathering_state(&self) -> Option<IceGatheringState> {
+        self.peer_connection
+            .as_ref()
+            .map(|pc| pc.ice_gathering_state())
+    }
+
+    /// Return the local SDP description, if set.
+    pub fn local_description(&self) -> Option<String> {
+        self.peer_connection
+            .as_ref()
+            .and_then(|pc| pc.current_local_description())
+            .map(|d| d.to_string())
+    }
+
+    /// Return the remote SDP description, if set.
+    pub fn remote_description(&self) -> Option<String> {
+        self.peer_connection
+            .as_ref()
+            .and_then(|pc| pc.current_remote_description())
+            .map(|d| d.to_string())
+    }
+
+    /// Number of frames sent through the pipeline.
+    pub fn frames_sent(&self) -> u64 {
+        self.frames_sent
+    }
+
+    /// Number of frames received from the remote peer.
+    pub fn frames_received(&self) -> u64 {
+        self.frames_received
+    }
+
+    /// Return a reference to the PeerConnectionFactory, if initialized.
+    pub fn factory(&self) -> Option<&PeerConnectionFactory> {
+        self.factory.as_ref()
+    }
+
+    /// Return a reference to the PeerConnection, if initialized.
+    pub fn peer_connection(&self) -> Option<&PeerConnection> {
+        self.peer_connection.as_ref()
+    }
+
+    /// Return a reference to the NativeVideoSource, if initialized.
+    pub fn video_source(&self) -> Option<&NativeVideoSource> {
+        self.video_source.as_ref()
+    }
+
+    /// Close the session and release resources.
+    pub fn close(&mut self) {
+        if let Some(pc) = &self.peer_connection {
+            pc.close();
+        }
+        self.factory = None;
+        self.peer_connection = None;
+        self.video_source = None;
+        self.video_stream = None;
+        self.video_track_rx = None;
+        self.state = WebRtcSessionState::Closed;
+        tracing::info!("WebRTC session closed");
+    }
+}
+
+impl Default for WebRtcSession {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl std::fmt::Debug for WebRtcSession {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("WebRtcSession")
+            .field("state", &self.state)
+            .field("frames_sent", &self.frames_sent)
+            .field("frames_received", &self.frames_received)
+            .finish()
+    }
+}
+
+impl Drop for WebRtcSession {
+    fn drop(&mut self) {
+        if self.state != WebRtcSessionState::Closed {
+            self.close();
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Tests
+// ---------------------------------------------------------------------------
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn session_initial_state() {
+        let session = WebRtcSession::new();
+        assert_eq!(session.state(), WebRtcSessionState::New);
+        assert!(session.peer_connection().is_none());
+        assert!(session.video_source().is_none());
+        assert_eq!(session.frames_sent(), 0);
+        assert_eq!(session.frames_received(), 0);
+    }
+
+    #[test]
+    fn session_debug_format() {
+        let session = WebRtcSession::new();
+        let dbg = format!("{:?}", session);
+        assert!(dbg.contains("WebRtcSession"));
+        assert!(dbg.contains("New"));
+    }
+
+    #[test]
+    fn session_close_transitions_state() {
+        let mut session = WebRtcSession::new();
+        session.close();
+        assert_eq!(session.state(), WebRtcSessionState::Closed);
+    }
+
+    #[test]
+    fn session_send_frame_without_init_errors() {
+        let mut session = WebRtcSession::new();
+        let frame = CapturedFrame {
+            data: vec![0u8; 64 * 64 * 4],
+            width: 64,
+            height: 64,
+            pixel_format: rdcs_platform::PixelFormat::Bgra,
+            stride: 64 * 4,
+            display_id: 0,
+            timestamp_us: 0,
+        };
+        let result = session.send_frame(&frame);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn session_default_is_new() {
+        let session = WebRtcSession::default();
+        assert_eq!(session.state(), WebRtcSessionState::New);
+    }
+
+    #[test]
+    fn session_set_encoder_decoder_config() {
+        let mut session = WebRtcSession::new();
+        session.set_encoder_config(EncoderConfig::full_hd());
+        session.set_decoder_config(DecoderConfig {
+            codec: CodecType::H264,
+            width: 1920,
+            height: 1080,
+        });
+        assert!(session.encoder_config.is_some());
+        assert!(session.decoder_config.is_some());
+    }
+
+    #[tokio::test]
+    #[ignore = "requires full WebRTC native runtime which may not be available in CI"]
+    async fn session_initialize_and_close() {
+        let mut session = WebRtcSession::new();
+        let result = session
+            .initialize(
+                vec![],
+                VideoResolution {
+                    width: 640,
+                    height: 480,
+                },
+                true,
+                false,
+            )
+            .await;
+
+        // This may fail if webrtc-sys native library isn't available
+        // in the test environment, which is OK.
+        match result {
+            Ok(()) => {
+                assert!(session.peer_connection().is_some());
+                assert!(session.video_source().is_some());
+                session.close();
+                assert_eq!(session.state(), WebRtcSessionState::Closed);
+            }
+            Err(e) => {
+                tracing::warn!("PeerConnection init failed (expected in CI): {}", e);
+            }
+        }
+    }
+}
