@@ -400,7 +400,7 @@ fn test_transfer_checksum_mismatch() {
     }).unwrap();
 
     // Create offer with wrong checksum
-    let mut offer = FileOffer {
+    let offer = FileOffer {
         id: handle.id,
         file_name: "corrupt.bin".to_string(),
         file_size: handle.total_bytes,

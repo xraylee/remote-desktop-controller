@@ -61,7 +61,17 @@
 
 ## 🚀 下一步：开始测试
 
-### 在 Intel Mac 上
+### 在 Apple Silicon Mac（当前机器 - 主控端）上
+
+```bash
+# 1. 进入项目目录
+cd /Users/lc/Development/source/remote-desktop-controller
+
+# 2. 运行测试（作为 Server/Offerer）
+./scripts/ice-test-server.sh
+```
+
+### 在 Intel Mac（辅助机器 - 被控端）上
 
 ```bash
 # 1. 进入项目目录
@@ -70,24 +80,14 @@ cd /path/to/remote-desktop-controller
 # 2. 同步代码（如果需要）
 git pull
 
-# 3. 运行测试
-./scripts/ice-test-server.sh
-```
-
-### 在 Apple Silicon Mac（当前机器）上
-
-```bash
-# 1. 进入项目目录
-cd /Users/lc/Development/source/remote-desktop-controller
-
-# 2. 运行测试
+# 3. 运行测试（作为 Client/Answerer）
 ./scripts/ice-test-client.sh
 ```
 
 ### 交换连接信息
 
-1. Intel Mac 输出 **OFFER** → 复制发送到 Apple Silicon Mac
-2. Apple Silicon Mac 输出 **ANSWER** → 复制发送回 Intel Mac
+1. Apple Silicon Mac 输出 **OFFER** → 复制发送到 Intel Mac
+2. Intel Mac 输出 **ANSWER** → 复制发送回 Apple Silicon Mac
 3. 两边等待连接建立
 
 ---

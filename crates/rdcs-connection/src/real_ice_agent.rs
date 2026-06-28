@@ -42,7 +42,19 @@ pub struct RealIceAgent {
 impl RealIceAgent {
     /// Create a new real ICE agent with the given ICE servers.
     pub async fn new(ice_servers: Vec<String>) -> Result<Self, ConnectionError> {
-        info!("Creating real ICE agent with {} servers", ice_servers.len());
+        Self::new_with_options(ice_servers, true).await
+    }
+
+    /// Create a new real ICE agent with options.
+    ///
+    /// # Arguments
+    /// * `ice_servers` - List of STUN/TURN server URLs
+    /// * `create_data_channel` - If true, creates a DataChannel (for offerer). If false, waits for remote DataChannel (for answerer).
+    pub async fn new_with_options(
+        ice_servers: Vec<String>,
+        create_data_channel: bool,
+    ) -> Result<Self, ConnectionError> {
+        info!("Creating real ICE agent with {} servers (create_dc: {})", ice_servers.len(), create_data_channel);
 
         // Create a MediaEngine (not used for data-only connections, but required by webrtc-rs)
         let mut media_engine = MediaEngine::default();
@@ -141,17 +153,40 @@ impl RealIceAgent {
                 })
             }));
 
+        // Set up on_data_channel handler for answerer side
+        // When the remote peer creates a DataChannel, this handler will be called
+        let data_channel_clone = data_channel.clone();
+        peer_connection.on_data_channel(Box::new(move |dc| {
+            let data_channel = data_channel_clone.clone();
+            Box::pin(async move {
+                info!("📨 Received DataChannel from remote peer: {}", dc.label());
+
+                // Replace the local DataChannel with the one from remote
+                let mut dc_lock = data_channel.lock().await;
+                if dc_lock.is_none() {
+                    info!("Setting up DataChannel from remote offer");
+                    *dc_lock = Some(dc);
+                } else {
+                    info!("DataChannel already exists (we are the offerer)");
+                }
+            })
+        }));
+
         // Create a data channel to trigger ICE candidate gathering
-        // Without this, webrtc-rs won't start gathering candidates
-        let dc = peer_connection
-            .create_data_channel("rdcs-control", None)
-            .await
-            .map_err(|e| ConnectionError::IceError(format!("Failed to create data channel: {}", e)))?;
+        // Note: Only the offerer's DataChannel will be used for actual communication
+        if create_data_channel {
+            let dc = peer_connection
+                .create_data_channel("rdcs-control", None)
+                .await
+                .map_err(|e| ConnectionError::IceError(format!("Failed to create data channel: {}", e)))?;
 
-        debug!("Created data channel for ICE gathering");
+            info!("Created data channel: {}", dc.label());
 
-        // Store the data channel for later use (dc is already Arc<RTCDataChannel>)
-        *data_channel.lock().await = Some(dc);
+            // Store the data channel for later use (dc is already Arc<RTCDataChannel>)
+            *data_channel.lock().await = Some(dc);
+        } else {
+            info!("Waiting for remote peer to create DataChannel (answerer mode)");
+        }
 
         Ok(Self {
             peer_connection,

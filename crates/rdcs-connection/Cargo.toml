@@ -17,3 +17,5 @@ bytes = "1.5"
 [dev-dependencies]
 tracing-subscriber = { workspace = true }
 serde_json = { workspace = true }
+rdcs-codec = { path = "../rdcs-codec", features = ["software-encoder"] }
+rdcs-platform = { path = "../rdcs-platform" }

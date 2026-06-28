@@ -2,32 +2,32 @@
 
 ## 🚀 30 分钟测试流程
 
-### Intel Mac 操作（5 分钟）
+### Apple Silicon Mac（当前机器 - 主控端）操作（5 分钟）
+
+```bash
+cd /Users/lc/Development/source/remote-desktop-controller
+./scripts/ice-test-server.sh
+```
+
+等待并复制 OFFER JSON → 发送到 Intel Mac
+
+---
+
+### Intel Mac（辅助机器 - 被控端）操作（5 分钟）
 
 ```bash
 cd /path/to/remote-desktop-controller
 git pull
-./scripts/ice-test-server.sh
-```
-
-等待并复制 OFFER JSON → 发送到 Apple Silicon Mac
-
----
-
-### Apple Silicon Mac 操作（5 分钟）
-
-```bash
-cd /Users/lc/Development/source/remote-desktop-controller
 ./scripts/ice-test-client.sh
 ```
 
 1. 粘贴 OFFER JSON
 2. 按 `Ctrl+D`
-3. 复制 ANSWER JSON → 发送回 Intel Mac
+3. 复制 ANSWER JSON → 发送回 Apple Silicon Mac
 
 ---
 
-### Intel Mac 继续（5 分钟）
+### Apple Silicon Mac 继续（5 分钟）
 
 1. 粘贴 ANSWER JSON
 2. 按 `Ctrl+D`

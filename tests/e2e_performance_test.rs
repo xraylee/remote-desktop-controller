@@ -247,7 +247,7 @@ async fn test_video_throughput_1080p60() {
 
     let duration_secs = 10;
     let target_fps = 60;
-    let target_bitrate_mbps = 10.0; // For 1080p60
+    let _target_bitrate_mbps = 10.0; // For 1080p60
 
     let start = Instant::now();
     let mut frame_count = 0u32;

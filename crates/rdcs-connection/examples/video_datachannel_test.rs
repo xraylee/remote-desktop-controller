@@ -39,8 +39,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     ];
 
     info!("Step 1: Creating ICE agents...");
-    let mut peer_a = RealIceAgent::new(ice_servers.clone()).await?;
-    let mut peer_b = RealIceAgent::new(ice_servers).await?;
+    let mut peer_a = RealIceAgent::new(ice_servers.clone()).await?; // Offerer - creates DataChannel
+    let mut peer_b = RealIceAgent::new_with_options(ice_servers, false).await?; // Answerer - waits for DataChannel
     info!("✅ Agents created");
     info!("");
 
@@ -77,12 +77,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     info!("");
 
     info!("Step 7: Handling answer on Peer A...");
-    peer_a.handle_answer(answer)?;
+    peer_a.handle_answer(answer.clone())?;
     info!("✅ Answer handled");
     info!("");
 
     info!("Step 8: Adding remote candidates...");
-    peer_a.set_remote_candidates(offer.candidates)?;
+    peer_a.set_remote_candidates(answer.candidates)?;
+    peer_b.set_remote_candidates(offer.candidates)?;
     info!("✅ Remote candidates added");
     info!("");
 
@@ -118,25 +119,57 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     info!("Step 10: Getting DataChannels...");
     let dc_a = peer_a.get_data_channel()?;
     let dc_b = peer_b.get_data_channel()?;
-    info!("✅ DataChannels ready");
+    info!("✅ DataChannels obtained");
     info!("");
 
-    info!("Step 11: Creating VideoChannels...");
-    let video_tx = VideoChannel::new(dc_a);
-    let video_rx = VideoChannel::new(dc_b);
+    info!("Step 11: Waiting for DataChannels to open...");
+    info!("  - dc_a label: {}, ready_state: {:?}", dc_a.label(), dc_a.ready_state());
+    info!("  - dc_b label: {}, ready_state: {:?}", dc_b.label(), dc_b.ready_state());
+
+    let timeout = Duration::from_secs(5);
+    let start = tokio::time::Instant::now();
+
+    loop {
+        let state_a = dc_a.ready_state();
+        let state_b = dc_b.ready_state();
+
+        if state_a == webrtc::data_channel::data_channel_state::RTCDataChannelState::Open
+            && state_b == webrtc::data_channel::data_channel_state::RTCDataChannelState::Open
+        {
+            info!("✅ Both DataChannels are open!");
+            break;
+        }
+
+        if start.elapsed() > timeout {
+            return Err(format!("DataChannel open timeout. States: A={:?}, B={:?}", state_a, state_b).into());
+        }
+
+        tokio::time::sleep(Duration::from_millis(100)).await;
+    }
+    info!("");
+
+    info!("Step 12: Creating VideoChannels...");
+    let video_tx = VideoChannel::new(dc_a.clone());
+    let video_rx = VideoChannel::new(dc_b.clone());
     info!("✅ VideoChannels created");
+    info!("  - TX DataChannel: label='{}', state={:?}", dc_a.label(), dc_a.ready_state());
+    info!("  - RX DataChannel: label='{}', state={:?}", dc_b.label(), dc_b.ready_state());
     info!("");
 
-    info!("Step 12: Setting up receiver...");
+    info!("Step 13: Setting up receiver...");
     let received_frames = Arc::new(Mutex::new(Vec::new()));
     let received_frames_clone = received_frames.clone();
     let reassembler = Arc::new(Mutex::new(FrameReassembler::new(10)));
+
+    info!("Setting up on_message handler on video_rx DataChannel...");
 
     video_rx.on_message({
         let reassembler = reassembler.clone();
         let received_frames = received_frames_clone.clone();
 
         move |chunk| {
+            info!("📩 DataChannel received message: {} bytes", chunk.len());
+
             if chunk.len() < 8 {
                 info!("⚠️  Received chunk too small: {} bytes", chunk.len());
                 return;
@@ -144,6 +177,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
             match FrameHeader::deserialize(&chunk[..8]) {
                 Ok(header) => {
+                    info!("Parsed header: frame_id={}, chunk={}/{}, keyframe={}",
+                        header.frame_id, header.chunk_index, header.total_chunks, header.is_keyframe);
+
                     let data = chunk[8..].to_vec();
 
                     let reassembler = reassembler.clone();
@@ -174,7 +210,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     info!("✅ Receiver configured");
     info!("");
 
-    info!("Step 13: Sending test frames...");
+    info!("Step 14: Sending test frames...");
 
     // Test 1: Small frame (single chunk)
     let small_frame = vec![0xAA; 1024]; // 1KB
@@ -199,7 +235,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     info!("📤 Sent frame {} (large, {} bytes)", frame_id, large_frame.len());
 
     info!("");
-    info!("Step 14: Waiting for frames to be received...");
+    info!("Step 15: Waiting for frames to be received...");
     tokio::time::sleep(Duration::from_secs(2)).await;
 
     let received = received_frames.lock().await;

@@ -72,6 +72,7 @@ fn ice_offer_answer_full_flow() {
         session_id: offer.session_id.clone(),
         ufrag: "remote-ufrag".into(),
         pwd: "remote-pwd".into(),
+        fingerprint: "test-fingerprint".into(),
         candidates: remote_candidates,
     };
     agent.handle_answer(answer).unwrap();
@@ -366,6 +367,7 @@ fn full_connection_lifecycle_discover_connect_reconnect() {
         session_id: offer.session_id.clone(),
         ufrag: "remote-ufrag".into(),
         pwd: "remote-pwd".into(),
+        fingerprint: "test-fingerprint".into(),
         candidates: vec![remote_candidate],
     };
     agent.handle_answer(answer).unwrap();

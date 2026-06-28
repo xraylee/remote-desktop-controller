@@ -20,8 +20,8 @@
 ## 📋 前置要求
 
 ### 两台 Mac
-- **Mac A**: Intel Mac（作为 Server/Offerer）
-- **Mac B**: Apple Silicon Mac（作为 Client/Answerer）
+- **Apple Silicon Mac（当前机器 - 主控端）**: 作为 Server/Offerer
+- **Intel Mac（辅助机器 - 被控端）**: 作为 Client/Answerer
 
 ### 软件要求
 - Rust toolchain 已安装
@@ -32,18 +32,15 @@
 
 ## 🚀 测试步骤
 
-### 第一步：准备 Intel Mac (Server)
+### 第一步：准备 Apple Silicon Mac（主控端 - Server）
 
-在 Intel Mac 上执行：
+在当前 Mac 上执行：
 
 ```bash
 # 1. 进入项目目录
-cd /path/to/remote-desktop-controller
+cd /Users/lc/Development/source/remote-desktop-controller
 
-# 2. 拉取最新代码（如果是 git 仓库）
-git pull
-
-# 3. 运行 ICE Server
+# 2. 运行 ICE Server（主控端）
 cargo run -p rdcs-connection --example ice_server
 ```
 
@@ -77,19 +74,22 @@ Paste the Answer JSON and press Ctrl+D (Linux/Mac) or Ctrl+Z Enter (Windows):
 
 **⚠️ 重要**: 
 - 复制完整的 JSON（从 `{` 到 `}`）
-- 保存到文本编辑器或直接发送到 Apple Silicon Mac
+- 保存到文本编辑器或直接发送到 Intel Mac
 
 ---
 
-### 第二步：准备 Apple Silicon Mac (Client)
+### 第二步：准备 Intel Mac（被控端 - Client）
 
-在当前 Mac 上执行：
+在 Intel Mac 上执行：
 
 ```bash
 # 1. 进入项目目录
-cd /Users/lc/Development/source/remote-desktop-controller
+cd /path/to/remote-desktop-controller
 
-# 2. 运行 ICE Client
+# 2. 拉取最新代码（如果是 git 仓库）
+git pull
+
+# 3. 运行 ICE Client（被控端）
 cargo run -p rdcs-connection --example ice_client
 ```
 
@@ -107,13 +107,13 @@ Paste the Offer JSON and press Ctrl+D (Linux/Mac) or Ctrl+Z Enter (Windows):
 
 ### 第三步：交换连接信息
 
-#### 3.1 从 Intel Mac 复制 Offer 到 Apple Silicon Mac
+#### 3.1 从 Apple Silicon Mac 复制 Offer 到 Intel Mac
 
-1. 在 Intel Mac 的输出中复制完整的 JSON Offer
-2. 粘贴到 Apple Silicon Mac 的 ice_client 窗口
+1. 在 Apple Silicon Mac（主控端）的输出中复制完整的 JSON Offer
+2. 粘贴到 Intel Mac 的 ice_client 窗口
 3. 按 `Ctrl+D` 结束输入
 
-**Apple Silicon Mac 预期输出**：
+**Intel Mac 预期输出**：
 ```
 ✅ Offer received with X candidates
 
@@ -146,10 +146,10 @@ Step 7: Waiting for ICE connection...
 ICE state: ...
 ```
 
-#### 3.2 从 Apple Silicon Mac 复制 Answer 到 Intel Mac
+#### 3.2 从 Intel Mac 复制 Answer 到 Apple Silicon Mac
 
-1. 在 Apple Silicon Mac 的输出中复制完整的 JSON Answer
-2. 粘贴到 Intel Mac 的 ice_server 窗口（仍在等待输入）
+1. 在 Intel Mac（被控端）的输出中复制完整的 JSON Answer
+2. 粘贴到 Apple Silicon Mac 的 ice_server 窗口（仍在等待输入）
 3. 按 `Ctrl+D` 结束输入
 
 ---
@@ -182,7 +182,7 @@ Connection successful. Press Ctrl+C to exit.
 #### 1. 候选信息
 从 Offer/Answer JSON 中提取：
 
-**Intel Mac 候选**：
+**Apple Silicon Mac（主控端）候选**：
 ```json
 {
   "candidates": [
@@ -200,7 +200,7 @@ Connection successful. Press Ctrl+C to exit.
 }
 ```
 
-**Apple Silicon Mac 候选**：
+**Intel Mac（被控端）候选**：
 ```json
 {
   "candidates": [...]
@@ -215,8 +215,8 @@ Connection successful. Press Ctrl+C to exit.
 #### 2. 时间指标
 
 **收集间隔时间**：
-- Intel Mac: 从启动到 "Offer created" 的时间
-- Apple Silicon Mac: 从接收 Offer 到 "Gathered candidates" 的时间
+- Apple Silicon Mac: 从启动到 "Offer created" 的时间
+- Intel Mac: 从接收 Offer 到 "Gathered candidates" 的时间
 
 **连接建立时间**：
 - 从 "Waiting for ICE connection" 到 "ICE CONNECTION ESTABLISHED" 的时间
@@ -235,11 +235,11 @@ Selected candidate pair:
 
 ## 🔍 验证清单
 
-- [ ] Intel Mac 成功启动 ice_server
-- [ ] Intel Mac 输出 Offer JSON
-- [ ] Apple Silicon Mac 成功接收并解析 Offer
-- [ ] Apple Silicon Mac 输出 Answer JSON
-- [ ] Intel Mac 成功接收并解析 Answer
+- [ ] Apple Silicon Mac 成功启动 ice_server（主控端）
+- [ ] Apple Silicon Mac 输出 Offer JSON
+- [ ] Intel Mac 成功接收并解析 Offer（被控端）
+- [ ] Intel Mac 输出 Answer JSON
+- [ ] Apple Silicon Mac 成功接收并解析 Answer
 - [ ] 两边都显示 "ICE state: Checking"
 - [ ] 两边都显示 "ICE state: Connected"
 - [ ] 两边都显示 "ICE CONNECTION ESTABLISHED!"
@@ -309,13 +309,13 @@ nc -u -v stun.l.google.com 19302
 
 ## 环境信息
 
-**Intel Mac (Server)**:
-- CPU: [Intel Core iX]
+**Apple Silicon Mac（主控端 - Server）**:
+- CPU: [M1/M2/M3]
 - OS: [macOS version]
 - IP: [Private IP]
 
-**Apple Silicon Mac (Client)**:
-- CPU: [M1/M2/M3]
+**Intel Mac（被控端 - Client）**:
+- CPU: [Intel Core iX]
 - OS: [macOS version]
 - IP: [Private IP]
 
@@ -333,12 +333,12 @@ nc -u -v stun.l.google.com 19302
 - STUN 服务器: [stun.l.google.com:19302]
 
 ### 📊 候选统计
-**Intel Mac**:
+**Apple Silicon Mac（主控端）**:
 - Host 候选: [数量]
 - Srflx 候选: [数量]
 - 总计: [数量]
 
-**Apple Silicon Mac**:
+**Intel Mac（被控端）**:
 - Host 候选: [数量]
 - Srflx 候选: [数量]
 - 总计: [数量]

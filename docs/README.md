@@ -1,106 +1,64 @@
-# Documentation
+# RDCS 文档索引
 
-This directory contains all project documentation organized by category.
+**最后更新**: 2026-06-28
 
-## Structure
+---
 
-```
-docs/
-├── README.md                  ← This file (documentation index)
-├── ROADMAP.md                 ← Project roadmap and milestones
-├── DEVELOPMENT.md             ← Development guide
-├── research/                  ← Market research and product analysis
-│   ├── market-analysis.md     ← 9-product deep comparison report
-│   ├── product-brainstorming.md ← Product brainstorming v1
-│   └── product-brainstorming-v2.md ← Product brainstorming v2
-├── specs/                     ← Feature specification documents
-│   ├── architecture-design.md ← System architecture design
-│   ├── prd-v1.md             ← Product Requirements Document v1
-│   ├── prd-review-report.md  ← PRD review report
-│   └── wave-migration-plan.md ← Wave migration plan
-├── architecture/              ← Technical architecture documents
-│   └── (architecture docs)
-├── decisions/                 ← Architecture Decision Records (ADRs)
-│   ├── WEBRTC_ARCHITECTURE.md
-│   ├── WEBRTC_CODEC_INTEGRATION_DECISION.md
-│   └── WEBRTC_SOLUTION_COMPARISON.md
-├── plans/                     ← Development phase plans
-│   ├── plan-a-core-engine.md
-│   ├── plan-b-signaling.md
-│   ├── plan-c-relay.md
-│   ├── plan-d-flutter-client.md
-│   ├── plan-e-web-console.md
-│   └── plan-f-dev-environment.md
-├── progress/                  ← Development progress reports
-│   ├── NEXT_STEPS.md
-│   ├── final-project-status.md
-│   └── (various completion reports)
-├── testing/                   ← Testing documentation
-│   ├── TESTING_GUIDELINES.md
-│   ├── PHASE1_COMPLETION_REPORT.md
-│   └── VIDEOTOOLBOX_CRASH_DIAGNOSIS.md
-├── installation/              ← Installation and deployment guides
-│   ├── README.md
-│   ├── INSTALLATION_CHECKLIST.md
-│   ├── APPLE_SILICON_FIX.md
-│   ├── BEST_MIRRORS.md
-│   └── CHINA_MIRROR_GUIDE.md
-├── reviews/                   ← Project and technical reviews
-│   ├── README.md
-│   ├── PROJECT_REVIEW.md
-│   ├── WebRTC_Integration_Review.md
-│   └── architecture-review-report.md
-├── archived/                  ← Archived/historical documents
-│   └── README.md
-├── prototypes/                ← Prototype code and experiments
-└── images/                    ← Screenshots and diagrams
-    └── (product screenshots used in research docs)
-```
+## 🎯 核心文档（从这里开始）
 
-## Quick Links
+| 文档 | 说明 | 状态 |
+|------|------|------|
+| **[MVP 定义](MVP.md)** | 最小可行产品的定义和范围 | ✅ 已定义 |
+| **[当前阶段](CURRENT_PHASE.md)** | Phase 2 视频传输层（70%） | 🔄 活跃 |
+| **[E2E 测试方案](E2E_TEST_PLAN.md)** | 端到端测试计划 | ✅ 已制定 |
+| **[路线图](ROADMAP.md)** | 产品路线图 | ✅ 已制定 |
 
-### 📚 Research & Planning
-| Document | Description | Status |
-|----------|-------------|--------|
-| [Market Analysis](research/market-analysis.md) | In-depth comparison of 9 remote desktop products across 8 dimensions with 60+ feature items and 19 UI screenshots | ✅ Complete |
-| [Product Brainstorming](research/product-brainstorming.md) | 28 creative ideas evaluated through SCAMPER, 5-Why, competitor analysis, and constraint innovation frameworks | ✅ Complete |
-| [Project Roadmap](ROADMAP.md) | 5-phase development plan from research to v1.0 release | ✅ Complete |
-| [PRD v1](specs/prd-v1.md) | Product Requirements Document | ✅ Complete |
+---
 
-### 🏗️ Architecture & Design
-| Document | Description | Status |
-|----------|-------------|--------|
-| [Architecture Design](specs/architecture-design.md) | System architecture design | ✅ Complete |
-| [WebRTC Architecture](decisions/WEBRTC_ARCHITECTURE.md) | WebRTC integration architecture decision | ✅ Complete |
-| [Codec Integration](decisions/WEBRTC_CODEC_INTEGRATION_DECISION.md) | Video codec integration decision | ✅ Complete |
-| [WebRTC Comparison](decisions/WEBRTC_SOLUTION_COMPARISON.md) | WebRTC solution comparison | ✅ Complete |
+## 📚 按需查阅
 
-### 🔧 Development
-| Document | Description | Status |
-|----------|-------------|--------|
-| [Development Guide](DEVELOPMENT.md) | Development setup and workflow | ✅ Complete |
-| [Testing Guidelines](testing/TESTING_GUIDELINES.md) | Testing standards and procedures | ✅ Complete |
-| [Phase Plans](plans/) | Detailed implementation plans for each phase | ✅ Complete |
+### 开发
+- [开发指南](DEVELOPMENT.md) — 开发环境搭建
+- [下一步计划](progress/NEXT_STEPS.md) — 近期行动项
+- [项目状态](progress/final-project-status.md) — 整体进度
 
-### 📦 Installation & Deployment
-| Document | Description | Status |
-|----------|-------------|--------|
-| [Installation Guide](installation/README.md) | Installation documentation index | ✅ Complete |
-| [Setup Guide](../SETUP.md) | Basic setup instructions | ✅ Complete |
-| [Apple Silicon Fix](installation/APPLE_SILICON_FIX.md) | Apple Silicon specific fixes | ✅ Complete |
-| [China Mirror Guide](installation/CHINA_MIRROR_GUIDE.md) | Mirror configuration for China | ✅ Complete |
+### 测试
+- [测试规范](testing/TESTING_GUIDELINES.md) — 测试标准和流程
+- [跨架构测试](testing/CROSS_ARCHITECTURE_TEST.md) — ARM ↔ Intel 测试指南
+- [VideoToolbox 诊断](testing/VIDEOTOOLBOX_CRASH_DIAGNOSIS.md) — 已知崩溃问题
 
-### 📊 Progress & Reviews
-| Document | Description | Status |
-|----------|-------------|--------|
-| [Final Project Status](progress/final-project-status.md) | Overall project status | ✅ Complete |
-| [Next Steps](progress/NEXT_STEPS.md) | Immediate next actions | ✅ Complete |
-| [Project Review](reviews/PROJECT_REVIEW.md) | Project review report | ✅ Complete |
-| [WebRTC Integration Review](reviews/WebRTC_Integration_Review.md) | WebRTC integration review | ✅ Complete |
+### 安装
+- [安装索引](installation/README.md) — 安装文档入口
+- [Apple Silicon 修复](installation/APPLE_SILICON_FIX.md) — 平台特定修复
+- [中国镜像](installation/CHINA_MIRROR_GUIDE.md) — 镜像配置指南
 
-## For Contributors
+### 架构决策
+- [WebRTC 架构](decisions/WEBRTC_ARCHITECTURE.md) — WebRTC 方案选择
+- [编解码器选择](decisions/WEBRTC_CODEC_INTEGRATION_DECISION.md) — 编解码器集成决策
+- [方案对比](decisions/WEBRTC_SOLUTION_COMPARISON.md) — WebRTC 方案对比
 
-- Start with the [main README](../README.md) for project overview
-- Read [CONTRIBUTING.md](../CONTRIBUTING.md) before making changes
-- Check the [Roadmap](ROADMAP.md) to see what's being worked on
-- Feature specs (when available) will be the source of truth for requirements
+### 研究
+- [市场分析](research/market-analysis.md) — 9 款产品深度对比
+- [产品脑暴](research/product-brainstorming.md) — 28 个创意方案
+
+### 规范
+- [架构设计](specs/architecture-design.md) — 系统架构
+- [PRD v1](specs/prd-v1.md) — 产品需求文档
+
+### 开发计划
+- [核心引擎](plans/plan-a-core-engine.md) — Phase A
+- [信令服务](plans/plan-b-signaling.md) — Phase B
+- [中继服务](plans/plan-c-relay.md) — Phase C
+- [Flutter 客户端](plans/plan-d-flutter-client.md) — Phase D
+- [Web 控制台](plans/plan-e-web-console.md) — Phase E
+- [开发环境](plans/plan-f-dev-environment.md) — Phase F
+
+### 项目组织
+- [标准结构](STANDARD_STRUCTURE.md) — Superpowers 标准项目结构
+- [执行清单](EXECUTION_CHECKLIST.md) — 项目整理步骤
+
+---
+
+## 🗄️ 归档文档
+
+历史文档和旧报告归档在 [archived/](archived/) 目录下。
