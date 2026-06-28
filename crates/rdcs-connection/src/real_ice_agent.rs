@@ -30,6 +30,7 @@ use crate::ConnectionError;
 /// Real ICE agent implementation using WebRTC.
 pub struct RealIceAgent {
     peer_connection: Arc<RTCPeerConnection>,
+    data_channel: Arc<Mutex<Option<Arc<RTCDataChannel>>>>,
     local_candidates: Arc<Mutex<Vec<IceCandidate>>>,
     state: Arc<Mutex<IceState>>,
     ice_connection_state: Arc<Mutex<IceState>>,
@@ -81,6 +82,7 @@ impl RealIceAgent {
         let local_candidates = Arc::new(Mutex::new(Vec::new()));
         let state = Arc::new(Mutex::new(IceState::New));
         let ice_connection_state = Arc::new(Mutex::new(IceState::New));
+        let data_channel = Arc::new(Mutex::new(None));
 
         // Set up ICE candidate handler
         let local_candidates_clone = local_candidates.clone();
@@ -141,15 +143,19 @@ impl RealIceAgent {
 
         // Create a data channel to trigger ICE candidate gathering
         // Without this, webrtc-rs won't start gathering candidates
-        let _data_channel = peer_connection
+        let dc = peer_connection
             .create_data_channel("rdcs-control", None)
             .await
             .map_err(|e| ConnectionError::IceError(format!("Failed to create data channel: {}", e)))?;
 
         debug!("Created data channel for ICE gathering");
 
+        // Store the data channel for later use (dc is already Arc<RTCDataChannel>)
+        *data_channel.lock().await = Some(dc);
+
         Ok(Self {
             peer_connection,
+            data_channel,
             local_candidates,
             state,
             ice_connection_state,
@@ -216,6 +222,19 @@ impl RealIceAgent {
                     Ok((ufrag, pwd, fingerprint))
                 } else {
                     Err(ConnectionError::IceError("No local description set".to_string()))
+                }
+            })
+        })
+    }
+
+    /// Get the DataChannel for video transmission.
+    pub fn get_data_channel(&self) -> Result<Arc<RTCDataChannel>, ConnectionError> {
+        tokio::task::block_in_place(|| {
+            tokio::runtime::Handle::current().block_on(async {
+                if let Some(dc) = self.data_channel.lock().await.as_ref() {
+                    Ok(dc.clone())
+                } else {
+                    Err(ConnectionError::IceError("DataChannel not ready".to_string()))
                 }
             })
         })

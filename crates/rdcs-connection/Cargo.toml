@@ -12,6 +12,7 @@ tokio = { workspace = true }
 uuid = { workspace = true }
 webrtc = "0.9"
 tracing = { workspace = true }
+bytes = "1.5"
 
 [dev-dependencies]
 tracing-subscriber = { workspace = true }
