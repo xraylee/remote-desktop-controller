@@ -1,13 +1,44 @@
 # 待办任务清单
 
-**更新日期**: 2026-06-28  
-**当前阶段**: Phase 3.4+ 完成，准备进入下一阶段
+**更新日期**: 2026-06-29  
+**当前阶段**: Phase 4.1 完成，硬件编码器集成成功
 
 ---
 
 ## 🔥 立即待办
 
-### 1. 代码提交 ⭐⭐⭐
+### 1. Phase 4.2: 屏幕捕获性能分析完成 ⭐⭐⭐ ✅ 已完成
+**完成内容**: 
+- ✅ 真实屏幕捕获集成完成
+- ✅ 性能瓶颈分析完成
+- ✅ 技术方案调研完成
+- ✅ 代码注释优化
+
+**测试结果**:
+```
+实际帧率: 6.6 fps (目标 30 fps)
+捕获+编码: 150.28ms (目标 < 33ms)
+编码器单独: 22.11ms ✅ (硬件加速正常)
+瓶颈: CGDisplayCreateImage 同步捕获 ~128ms
+```
+
+**技术分析**:
+- CGDisplayStream 实现复杂（需要 Objective-C Block + RunLoop）
+- 不适合纯 Rust FFI
+- 已记录 4 种优化方案（见文档）
+
+**已创建文档**:
+- `docs/testing/REAL_SCREEN_CAPTURE_PERFORMANCE.md` - 性能测试报告
+- `docs/technical/SCREEN_CAPTURE_OPTIMIZATION.md` - 技术方案分析
+
+**推荐方案**:
+- 短期：优化现有实现（Arc 零拷贝、分辨率缩放、双缓冲）
+- 中期：Swift Helper + 共享内存（使用 ScreenCaptureKit）
+- 长期：纯 Rust CGDisplayStream（如果可行）
+
+**下一步**: 根据项目优先级决定是否进入性能优化实施阶段
+
+### 2. ~~代码提交~~ ⭐⭐⭐ ✅ 已完成
 ```bash
 # 添加新文件
 git add crates/rdcs-connection/src/video_channel.rs
@@ -87,18 +118,23 @@ pub use frame_reassembler::{FrameReassembler, FrameHeader, FrameError};
 
 ### Phase 4: 真实环境集成
 
-#### 4.1 硬件编码器集成 ⭐⭐⭐
-- ✅ macOS: VideoToolbox 硬件编码测试工具完成
+#### 4.1 硬件编码器集成 ⭐⭐⭐ ✅ 已完成
+- ✅ macOS: VideoToolbox 硬件编码器集成
+- ✅ 修复 CMTime FFI 崩溃问题
+- ✅ 修复 CompleteFrames 崩溃问题
+- ✅ 修复 UV plane 边界溢出
 - ✅ 创建性能对比测试脚本
-- ✅ 文档完整
-- ⏳ 运行性能基准测试
-- ⏳ 验证编码延迟 45ms → 20ms
-- ⏳ 更新端到端测试使用硬件编码
+- ✅ 运行性能基准测试
+- ✅ 验证性能提升：1.97x 倍加速
+- ✅ 验证编码延迟：43.70ms → 22.11ms
+- ✅ 验证端到端延迟：77.70ms → 56.11ms
+- ✅ 完整性能报告文档
 
 #### 4.2 真实屏幕捕获 ⭐⭐⭐
 - [ ] 替换测试帧生成为真实捕获
 - [ ] macOS: 使用 `rdcs-macos` CGDisplayStream
 - [ ] 测试不同分辨率
+- [ ] 验证端到端性能
 
 #### 4.3 Flutter UI 显示 ⭐⭐
 - [ ] 集成视频渲染
@@ -160,9 +196,10 @@ pub use frame_reassembler::{FrameReassembler, FrameHeader, FrameError};
 - ✅ Phase 3.3: DTLS 加密
 - ✅ Phase 3.4: DataChannel 传输
 - ✅ Phase 3.4+: 端到端编解码器集成
+- ✅ Phase 4.1: VideoToolbox 硬件编码器集成 ✨
 
 ### 进行中
-- 🔄 代码提交和归档（立即）
+- 🔄 Phase 4.2: 真实屏幕捕获集成
 
 ### 最近完成
 - ✅ 编译警告清理（2026-06-28）

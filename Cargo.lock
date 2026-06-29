@@ -2004,6 +2004,7 @@ version = "0.1.0"
 dependencies = [
  "bytes",
  "rdcs-codec",
+ "rdcs-macos",
  "rdcs-platform",
  "serde",
  "serde_json",

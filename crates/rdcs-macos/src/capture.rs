@@ -128,6 +128,11 @@ mod macos_impl {
     }
 
     /// Capture the main display and extract pixel data.
+    ///
+    /// Performance optimization: This function is the bottleneck (~128ms).
+    /// CGDisplayCreateImage is synchronous and involves GPU-to-CPU transfer.
+    ///
+    /// Future optimization: Use CGDisplayStream for <10ms async capture.
     fn capture_display(display_id: CGDirectDisplayID) -> Option<CapturedFrame> {
         unsafe {
             let image = CGDisplayCreateImage(display_id);
@@ -148,6 +153,8 @@ mod macos_impl {
             };
 
             // Extract pixel data via the data provider.
+            // OPTIMIZATION NOTE: This involves a memory copy. Using IOSurface
+            // with CGDisplayStream would enable zero-copy access.
             let provider = CGImageGetDataProvider(image);
             let data = if !provider.is_null() {
                 let cf_data = CGDataProviderCopyData(provider);

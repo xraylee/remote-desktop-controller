@@ -23,3 +23,4 @@ tracing-subscriber = { workspace = true }
 serde_json = { workspace = true }
 rdcs-codec = { path = "../rdcs-codec", features = ["hardware-accel"] }
 rdcs-platform = { path = "../rdcs-platform" }
+rdcs-macos = { path = "../rdcs-macos" }
