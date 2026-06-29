@@ -163,10 +163,7 @@ impl NativeVideoEncoder {
         &mut self,
         captured: &CapturedFrame,
     ) -> Result<Vec<u8>, CodecError> {
-        // Convert CapturedFrame (BGRA) to Frame (YUV420)
         let yuv_frame = captured_frame_to_yuv420(captured)?;
-
-        // Encode using platform encoder
         self.inner.encode(&yuv_frame)
     }
 

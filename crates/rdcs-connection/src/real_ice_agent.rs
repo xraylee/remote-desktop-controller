@@ -35,7 +35,9 @@ pub struct RealIceAgent {
     state: Arc<Mutex<IceState>>,
     ice_connection_state: Arc<Mutex<IceState>>,
     session_id: String,
+    #[allow(dead_code)]
     ufrag: String,
+    #[allow(dead_code)]
     pwd: String,
 }
 
@@ -276,6 +278,7 @@ impl RealIceAgent {
     }
 
     /// Wait for ICE gathering to complete.
+    #[allow(dead_code)]
     async fn wait_for_gathering(&self) -> Result<(), ConnectionError> {
         // Wait for gathering state to become complete
         let timeout = tokio::time::Duration::from_secs(10);

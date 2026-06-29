@@ -88,9 +88,12 @@ pub use frame_reassembler::{FrameReassembler, FrameHeader, FrameError};
 ### Phase 4: 真实环境集成
 
 #### 4.1 硬件编码器集成 ⭐⭐⭐
-- [ ] macOS: 使用 VideoToolbox 硬件编码
-- [ ] 预期提升: 编码延迟 45ms → 20ms
-- [ ] 测试硬件加速性能
+- ✅ macOS: VideoToolbox 硬件编码测试工具完成
+- ✅ 创建性能对比测试脚本
+- ✅ 文档完整
+- ⏳ 运行性能基准测试
+- ⏳ 验证编码延迟 45ms → 20ms
+- ⏳ 更新端到端测试使用硬件编码
 
 #### 4.2 真实屏幕捕获 ⭐⭐⭐
 - [ ] 替换测试帧生成为真实捕获

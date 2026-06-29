@@ -1,0 +1,17 @@
+[package]
+name = "rdcs-display"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Video display and rendering for RDCS remote desktop"
+
+[dependencies]
+thiserror = { workspace = true }
+tracing = { workspace = true }
+rdcs-platform = { path = "../rdcs-platform" }
+
+# SDL2 for cross-platform window and rendering
+sdl2 = { version = "0.37", features = ["bundled", "static-link"] }
+
+[dev-dependencies]
+tokio = { workspace = true }

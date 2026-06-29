@@ -6,7 +6,7 @@
 use crate::error::CodecError;
 use crate::types::{Frame, VideoCodec, VideoResolution};
 use openh264::encoder::Encoder;
-use openh264::formats::{YUVBuffer, YUVSource};
+use openh264::formats::YUVBuffer;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use std::time::Instant;
@@ -28,7 +28,9 @@ pub struct OpenH264Encoder {
     encoder: Encoder,
     width: u32,
     height: u32,
+    #[allow(dead_code)]
     fps: u32,
+    #[allow(dead_code)]
     bitrate: u32,
     stats: Arc<OpenH264EncoderStats>,
     keyframe_requested: bool,

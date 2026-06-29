@@ -14,8 +14,12 @@ webrtc = "0.9"
 tracing = { workspace = true }
 bytes = "1.5"
 
+[features]
+software-encoder = ["rdcs-codec/software-encoder"]
+hardware-accel = ["rdcs-codec/hardware-accel"]
+
 [dev-dependencies]
 tracing-subscriber = { workspace = true }
 serde_json = { workspace = true }
-rdcs-codec = { path = "../rdcs-codec", features = ["software-encoder"] }
+rdcs-codec = { path = "../rdcs-codec", features = ["hardware-accel"] }
 rdcs-platform = { path = "../rdcs-platform" }

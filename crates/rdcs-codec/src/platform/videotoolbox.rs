@@ -9,10 +9,6 @@
 use crate::error::CodecError;
 use crate::platform::{DecoderStats, EncoderStats, PlatformDecoder, PlatformEncoder};
 use crate::types::{Frame, VideoCodec, VideoResolution};
-use core_foundation::base::{CFType, TCFType};
-use core_foundation::dictionary::CFDictionary;
-use core_foundation::number::CFNumber;
-use core_foundation::string::CFString;
 use std::ptr;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Arc;
@@ -41,10 +37,13 @@ type CMFormatDescriptionRef = *mut std::ffi::c_void;
 #[allow(non_camel_case_types)]
 type CMTime = [i64; 3]; // simplified: {value, timescale, flags}
 
+#[allow(non_upper_case_globals)]
 const kCMVideoCodecType_H264: u32 = 0x61766331; // 'avc1'
+#[allow(non_upper_case_globals)]
 const kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange: u32 = 0x34323076; // '420v'
 
 // VTCompressionOutputCallback signature
+#[allow(dead_code)]
 type VTCompressionOutputCallback = extern "C" fn(
     output_callback_ref_con: *mut std::ffi::c_void,
     source_frame_ref_con: *mut std::ffi::c_void,
@@ -56,6 +55,7 @@ type VTCompressionOutputCallback = extern "C" fn(
 #[allow(non_camel_case_types)]
 type VTDecompressionSessionRef = *mut std::ffi::c_void;
 
+#[allow(dead_code)]
 type VTDecompressionOutputCallback = extern "C" fn(
     decompress_callback_ref_con: *mut std::ffi::c_void,
     source_frame_ref_con: *mut std::ffi::c_void,
@@ -169,10 +169,12 @@ extern "C" {
         destination: *mut u8,
     ) -> OSStatus;
 
+    #[allow(dead_code)]
     fn CMSampleBufferGetFormatDescription(
         sample_buffer: CMSampleBufferRef,
     ) -> CMFormatDescriptionRef;
 
+    #[allow(dead_code)]
     fn CMVideoFormatDescriptionGetH264ParameterSetAtIndex(
         video_desc: CMFormatDescriptionRef,
         parameter_set_index: usize,
@@ -324,8 +326,11 @@ pub struct VideoToolboxEncoder {
     session: VTCompressionSessionRef,
     width: u32,
     height: u32,
+    #[allow(dead_code)]
     fps: u32,
+    #[allow(dead_code)]
     bitrate: u32,
+    #[allow(dead_code)]
     codec: VideoCodec,
 
     // Statistics
@@ -434,12 +439,17 @@ impl PlatformEncoder for VideoToolboxEncoder {
 
         // Encode the frame
         unsafe {
+            // Create valid CMTime structures
+            // CMTime format: [value, timescale, flags]
+            let presentation_time: CMTime = [0, 1, 1]; // time 0, timescale 1, valid flag
+            let duration: CMTime = [1, 30, 1]; // 1/30 second for 30fps
+
             let mut info_flags = 0u32;
             let status = VTCompressionSessionEncodeFrame(
                 self.session,
                 pixel_buffer,
-                ptr::null(), // presentation timestamp
-                ptr::null(), // duration
+                &presentation_time as *const CMTime as *const std::ffi::c_void, // presentation timestamp
+                &duration as *const CMTime as *const std::ffi::c_void, // duration
                 ptr::null(), // frame properties
                 ptr::null_mut(),
                 &mut info_flags,
@@ -452,8 +462,12 @@ impl PlatformEncoder for VideoToolboxEncoder {
                 ));
             }
 
-            // Wait for encoding to complete
-            VTCompressionSessionCompleteFrames(self.session, ptr::null());
+            // kCMTimeInvalid = zero CMTime, means "complete all pending frames"
+            let k_cm_time_invalid: CMTime = [0, 0, 0];
+            VTCompressionSessionCompleteFrames(
+                self.session,
+                &k_cm_time_invalid as *const CMTime as *const std::ffi::c_void,
+            );
 
             CVPixelBufferRelease(pixel_buffer);
         }
@@ -592,7 +606,7 @@ impl VideoToolboxEncoder {
             }
 
             // Copy UV plane (NV12 format: interleaved U and V)
-            let uv_plane = CVPixelBufferGetBaseAddressOfPlane(pixel_buffer, 1);
+            let uv_plane = CVPixelBufferGetBaseAddressOfPlane(pixel_buffer, 1) as *mut u8;
             if uv_plane.is_null() {
                 CVPixelBufferUnlockBaseAddress(pixel_buffer, 0);
                 CVPixelBufferRelease(pixel_buffer);
@@ -608,15 +622,20 @@ impl VideoToolboxEncoder {
             let v_plane_start = y_size + (self.width * self.height / 4) as usize;
 
             for row in 0..uv_height {
+                let dst_row_ptr = uv_plane.add(row * uv_stride);
+
                 for col in 0..uv_width {
                     let u_src_idx = u_plane_start + row * uv_width + col;
                     let v_src_idx = v_plane_start + row * uv_width + col;
-                    let dst_idx = row * uv_stride + col * 2;
 
-                    // Bounds check before accessing
+                    // Bounds check for source data
                     if u_src_idx < frame.data.len() && v_src_idx < frame.data.len() {
-                        *uv_plane.add(dst_idx) = frame.data[u_src_idx];
-                        *uv_plane.add(dst_idx + 1) = frame.data[v_src_idx];
+                        // NV12: interleaved UV (U at even offset, V at odd)
+                        let dst_offset = col * 2;
+                        if dst_offset + 1 < uv_stride {
+                            *dst_row_ptr.add(dst_offset) = frame.data[u_src_idx];
+                            *dst_row_ptr.add(dst_offset + 1) = frame.data[v_src_idx];
+                        }
                     }
                 }
             }
@@ -727,9 +746,9 @@ extern "C" fn decompression_output_callback(
         // Lock pixel buffer
         CVPixelBufferLockBaseAddress(image_buffer, 0);
 
-        // Get dimensions
-        let width = CVPixelBufferGetBaseAddressOfPlane(image_buffer, 0) as usize;
-        let height = CVPixelBufferGetBytesPerRowOfPlane(image_buffer, 0);
+        // Get dimensions (used for future NV12 -> YUV420 conversion)
+        let _width = CVPixelBufferGetBaseAddressOfPlane(image_buffer, 0) as usize;
+        let _height = CVPixelBufferGetBytesPerRowOfPlane(image_buffer, 0);
 
         // For now, create a placeholder frame
         // TODO: Implement proper NV12 -> YUV420 or BGRA conversion
@@ -749,6 +768,7 @@ extern "C" fn decompression_output_callback(
 pub struct VideoToolboxDecoder {
     session: VTDecompressionSessionRef,
     format_description: CMFormatDescriptionRef,
+    #[allow(dead_code)]
     codec: VideoCodec,
     width: u32,
     height: u32,

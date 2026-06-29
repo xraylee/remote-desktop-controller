@@ -1,500 +1,199 @@
-# 端到端测试方案（E2E Test Plan）
+# E2E 测试计划
 
-**制定日期**: 2026-06-28  
-**测试框架**: Superpowers 垂直切片原则  
-**机器角色**: Apple Silicon Mac（主控端）→ Intel Mac（被控端）
-
----
-
-## 🎯 测试目标
-
-### MVP 目标
-**用户能够从 Apple Silicon Mac 远程查看和控制 Intel Mac 的桌面**
-
-### 验证的核心功能
-1. ✅ 屏幕捕获（被控端）
-2. ✅ 视频编码（被控端）
-3. ✅ 网络传输（P2P/Relay）
-4. ✅ 视频解码（主控端）
-5. ✅ 视频显示（主控端）
-6. ✅ 输入控制（键盘/鼠标）
-7. ✅ 跨架构兼容性
+**版本**: 2.0  
+**更新日期**: 2026-06-28  
+**原则**: Superpowers — 垂直切片，MVP 优先，单一信息源
 
 ---
 
-## 📊 测试金字塔
+## 前置说明
 
-### Level 1: 单元测试（Unit Tests）
-**已有覆盖**：
-- ✅ Mock 编解码器测试
-- ✅ 加密模块测试
-- ⚠️ VideoToolbox 编解码测试（有崩溃）
+### 机器角色
 
-**缺失**：
-- ❌ 网络模块单元测试
-- ❌ 输入处理单元测试
+| 机器 | 架构 | 角色 | 备注 |
+|------|------|------|------|
+| 当前开发机 | Apple Silicon (ARM) | 主力调试机 | 所有调试以此为准 |
+| 辅助机 | Intel (x86_64) | 辅助测试机 | 用于跨架构验证 |
 
-### Level 2: 组件测试（Component Tests）
-**已有覆盖**：
-- ✅ ICE 连接测试
-- ✅ OpenH264 集成测试
-- ✅ TCP 传输测试
+### 应用架构
 
-**缺失**：
-- ❌ 完整的编解码器测试（真实视频帧）
-- ❌ RTP 打包/解包测试
+同一个 binary，两种启动模式：
 
-### Level 3: 集成测试（Integration Tests）
-**已有覆盖**：
-- ✅ 本地回环测试（Mock）
+```
+rdcs-desktop serve              # 被控端：捕获屏幕并接受控制
+rdcs-desktop connect <IP>       # 主控端：显示远端屏幕并发送输入
+```
 
-**缺失**：
-- ❌ 跨进程集成测试
-- ❌ 跨网络集成测试
+### 测试前提：Phase 依赖关系
 
-### Level 4: 端到端测试（E2E Tests） ⭐ 本方案重点
-**缺失**：
-- ❌ 完整的远程桌面会话测试
-- ❌ 跨架构兼容性测试
-- ❌ 真实场景用户测试
+```
+T1（单机）→ T2（双进程）→ T3（局域网）→ T4（跨架构）→ T5（验收）
+  必须通过才能进入下一层
+```
 
 ---
 
-## 🎬 E2E 测试场景
+## T1 — 单机回环测试
 
-### 场景 1: 同一局域网下的远程桌面 ⭐ MVP
+**验证**: 视频管道在本地完整工作  
+**阶段前提**: Phase 2 编解码 + 显示已就绪  
+**执行机器**: Apple Silicon Mac（开发机）
 
-**测试目标**: 验证基础远程桌面功能
+### 执行方式
 
-**前置条件**：
-- Apple Silicon Mac 和 Intel Mac 在同一局域网
-- 两台机器都安装了最新代码
-- 网络没有严格防火墙限制
-
-**测试步骤**：
-
-#### Step 1: 启动被控端（Intel Mac）
 ```bash
-# 在 Intel Mac 上
-cd /path/to/remote-desktop-controller
-cargo run -p rdcs-agent --release
+cargo run --example display_roundtrip --features software-encoder --release
 ```
 
-**预期输出**：
-```
-[INFO] RDCS Agent started
-[INFO] Device ID: intel-mac-001
-[INFO] Listening for connections...
-[INFO] Screen capture initialized
-[INFO] Encoder: VideoToolbox H.264
-```
+### 通过标准
 
-#### Step 2: 启动主控端（Apple Silicon Mac）
+| 指标 | 要求 |
+|------|------|
+| 能看到动画画面 | ✅ 必须 |
+| 帧率 | ≥ 24 FPS |
+| 端到端延迟（编码+解码+显示） | < 100ms |
+| 无崩溃 | 运行 60s 无异常 |
+
+### 当前状态
+
+`display_roundtrip` 示例已存在，待在实机执行。
+
+---
+
+## T2 — 双进程本地测试
+
+**验证**: serve/connect 两种模式能在同一台机器上通信  
+**阶段前提**: `rdcs-desktop` binary 可编译运行  
+**执行机器**: Apple Silicon Mac（开发机）
+
+### 执行方式
+
 ```bash
-# 在 Apple Silicon Mac 上
-cd /Users/lc/Development/source/remote-desktop-controller
-cargo run -p rdcs-controller --release -- connect intel-mac-001
+# Terminal 1 — 被控端模式
+./target/release/rdcs-desktop serve --port 7000
+
+# Terminal 2 — 主控端模式
+./target/release/rdcs-desktop connect 127.0.0.1 --port 7000
 ```
 
-**预期输出**：
-```
-[INFO] RDCS Controller started
-[INFO] Discovering devices...
-[INFO] Found device: intel-mac-001 (192.168.1.x)
-[INFO] Initiating connection...
-```
+### 通过标准
 
-#### Step 3: 建立连接
-**自动流程**：
-1. mDNS 发现设备
-2. 交换 ICE 候选
-3. 建立 P2P 连接
-4. DTLS 握手
-5. 开始视频流传输
+| 指标 | 要求 |
+|------|------|
+| 两个进程能握手建立连接 | ✅ 必须 |
+| Controller 窗口显示视频 | ✅ 必须 |
+| 帧率 | ≥ 24 FPS |
+| 端到端延迟 | < 100ms |
+| 稳定运行 | 5 分钟无断线 |
 
-**预期日志**：
-```
-[INFO] ICE connection established
-[INFO] DTLS handshake complete
-[INFO] Receiving video stream: 1920x1080@30fps
-[INFO] Latency: ~50ms
-```
+### 阻塞项
 
-#### Step 4: 验证视频显示
-**手动验证**：
-- [ ] 主控端窗口显示被控端屏幕
-- [ ] 画面流畅，无明显卡顿
-- [ ] 延迟可接受（< 200ms）
-- [ ] 画质清晰
+- `rdcs-desktop` binary 骨架已创建，agent/controller 逻辑待实现
+- 需要完成 ICE 信令握手流程
 
-**自动验证**（如果可能）：
+---
+
+## T3 — 局域网双机测试
+
+**验证**: 两台 Mac 在同一局域网下远程桌面可用  
+**阶段前提**: T2 通过  
+**执行机器**: 两台 Mac，同一 Wi-Fi/有线网络
+
+### 部署方式
+
 ```bash
-# 截图并比较
-screenshot_controller > controller.png
-screenshot_agent > agent.png
-compare_images controller.png agent.png  # 相似度 > 90%
+# Intel Mac — 被控端
+scp target/release/rdcs-desktop user@intel-mac:~/
+ssh user@intel-mac
+./rdcs-desktop serve --port 7000
+
+# Apple Silicon Mac — 主控端（开发机）
+./target/release/rdcs-desktop connect <Intel-Mac-IP> --port 7000
 ```
 
-#### Step 5: 验证输入控制
-**鼠标控制**：
-- [ ] 在主控端移动鼠标 → 被控端光标同步移动
-- [ ] 点击 → 被控端响应点击
-- [ ] 拖拽 → 被控端正确处理拖拽
+### 通过标准
 
-**键盘控制**：
-- [ ] 打开文本编辑器
-- [ ] 在主控端输入文字 → 被控端正确显示
-- [ ] 快捷键（Cmd+C/V）正确工作
-
-#### Step 6: 压力测试
-**场景**：
-- [ ] 播放视频 → 高动态画面传输正常
-- [ ] 快速移动窗口 → 画面更新及时
-- [ ] 打开多个应用 → 性能稳定
-
-#### Step 7: 断线重连
-**测试**：
-1. 断开网络（拔网线或禁用 Wi-Fi）
-2. 等待 5 秒
-3. 恢复网络
-
-**预期**：
-- [ ] 自动检测断线
-- [ ] 自动尝试重连
-- [ ] 30 秒内恢复连接
-- [ ] 画面继续正常显示
-
-#### Step 8: 正常退出
-```bash
-# 主控端按 Ctrl+C
-```
-
-**预期**：
-- [ ] 优雅关闭连接
-- [ ] 清理资源
-- [ ] 被控端回到等待状态
+| 指标 | 要求 |
+|------|------|
+| 能看到 Intel Mac 的桌面 | ✅ 必须 |
+| 帧率 | ≥ 24 FPS |
+| 端到端延迟（含网络） | < 150ms |
+| 稳定运行 | 10 分钟无断线 |
+| 断线后能重连 | ✅ 必须 |
 
 ---
 
-### 场景 2: 跨网络远程桌面（通过 Relay）
+## T4 — 跨架构兼容性测试
 
-**测试目标**: 验证 NAT 穿透和 Relay 功能
+**验证**: ARM 和 x86_64 之间编解码、字节序无兼容问题  
+**阶段前提**: T3 通过  
+**执行机器**: 同 T3，额外增加反向测试
 
-**前置条件**：
-- 两台机器在不同网络（如：家庭网络 vs 公司网络）
-- 有可用的 TURN Relay 服务器
+### 测试矩阵
 
-**测试步骤**：类似场景 1，但需验证：
-- [ ] ICE 候选包含 Relay 候选
-- [ ] 使用 Relay 候选建立连接
-- [ ] 连接稳定性
+| 被控端（serve） | 主控端（connect） | 必须通过 |
+|---------------|-----------------|---------|
+| Intel Mac | Apple Silicon Mac | ✅ 正向 |
+| Apple Silicon Mac | Intel Mac | ✅ 反向 |
 
-**性能预期**：
-- 延迟: < 500ms（通过中继）
-- 带宽: 足够支持 720p@30fps
+### 通过标准
 
----
-
-### 场景 3: 真实用户场景
-
-**测试目标**: 验证实际使用场景
-
-**任务列表**：
-1. **浏览网页**
-   - [ ] 打开浏览器
-   - [ ] 输入网址
-   - [ ] 滚动页面
-   - [ ] 点击链接
-
-2. **编辑文档**
-   - [ ] 打开 Word/Pages
-   - [ ] 输入文字
-   - [ ] 格式化文本
-   - [ ] 保存文件
-
-3. **观看视频**
-   - [ ] 打开 YouTube
-   - [ ] 播放视频
-   - [ ] 全屏观看
-   - [ ] 声音同步（如支持）
-
-4. **使用开发工具**
-   - [ ] 打开 VS Code
-   - [ ] 编辑代码
-   - [ ] 运行终端命令
-   - [ ] 查看输出
+两个方向均满足 T3 通过标准，且互相编解码无花屏/音视频不同步。
 
 ---
 
-## 🧪 测试环境配置
+## T5 — MVP 验收测试
 
-### Apple Silicon Mac（主控端）
-```yaml
-硬件:
-  CPU: M1/M2/M3
-  内存: >= 8GB
-  网络: Wi-Fi 或有线
+**验证**: 满足 MVP 定义："用户能从 Apple Silicon Mac 远程查看和控制 Intel Mac 的桌面"  
+**阶段前提**: T4 通过，Phase 3（输入控制）完成  
+**执行者**: 开发者扮演真实用户，按使用手册操作
 
-软件:
-  OS: macOS 13+
-  Rust: 1.75+
-  工具: cargo, git
+### 场景脚本
 
-角色: Controller/Viewer
-功能:
-  - 视频解码和显示
-  - 输入捕获和发送
-  - 连接管理
+1. 打开 Intel Mac，不做任何配置，启动 `rdcs-desktop serve`
+2. 在 Apple Silicon Mac 启动 `rdcs-desktop connect <IP>`
+3. 能看到 Intel Mac 的屏幕
+4. 移动鼠标：Intel Mac 光标跟随移动
+5. 点击应用：Intel Mac 响应点击
+6. 输入文字：Intel Mac 接收键盘输入
+7. 主动断开连接：两端均干净退出
+
+### 通过标准
+
+| 场景步骤 | 要求 |
+|---------|------|
+| 1–3 连接建立 | < 10 秒 |
+| 屏幕延迟 | < 300ms |
+| 帧率 | ≥ 24 FPS |
+| 鼠标响应延迟 | < 100ms |
+| 键盘响应 | 无丢字 |
+| CPU 使用率（每台机器） | < 60% |
+| 内存占用 | < 500MB |
+| 稳定运行 | 30 分钟无崩溃 |
+
+---
+
+## 当前状态总览
+
+| 测试层 | 状态 | 阻塞原因 |
+|--------|------|---------|
+| T1 单机回环 | 🔄 待执行 | 示例已就绪，需在实机跑 |
+| T2 双进程 | ❌ 不可执行 | rdcs-desktop agent/controller 逻辑未实现 |
+| T3 局域网 | ❌ 不可执行 | 依赖 T2 |
+| T4 跨架构 | ❌ 不可执行 | 依赖 T3 |
+| T5 MVP 验收 | ❌ 不可执行 | 依赖 Phase 3 输入控制 |
+
+---
+
+## 执行顺序建议
+
 ```
-
-### Intel Mac（被控端）
-```yaml
-硬件:
-  CPU: Intel Core i5+
-  内存: >= 8GB
-  网络: Wi-Fi 或有线
-
-软件:
-  OS: macOS 12+
-  Rust: 1.75+
-  工具: cargo, git
-
-角色: Agent/Host
-功能:
-  - 屏幕捕获
-  - 视频编码
-  - 输入处理
-```
-
-### 网络环境
-```yaml
-本地网络:
-  类型: 同一局域网
-  延迟: < 5ms
-  带宽: >= 100Mbps
-
-远程网络:
-  类型: 跨公网
-  延迟: < 100ms
-  带宽: >= 10Mbps
-  NAT: 支持 STUN/TURN
+本周: T1 → 修复问题 → 推进 rdcs-desktop 实现
+下周: T2 → T3
+三周后: T4
+Phase 3 完成后: T5
 ```
 
 ---
 
-## 📏 成功标准
-
-### 功能性指标
-- ✅ 连接建立成功率 >= 95%
-- ✅ 视频流传输成功率 >= 99%
-- ✅ 输入响应准确率 = 100%
-- ✅ 断线重连成功率 >= 90%
-
-### 性能指标
-| 指标 | 本地网络 | 远程网络 |
-|------|---------|---------|
-| 连接建立时间 | < 5s | < 10s |
-| 端到端延迟 | < 100ms | < 300ms |
-| 视频帧率 | >= 30fps | >= 24fps |
-| 视频分辨率 | 1920x1080 | 1280x720 |
-| CPU 使用率 | < 50% | < 60% |
-| 内存使用 | < 500MB | < 600MB |
-
-### 兼容性指标
-- ✅ ARM ↔ Intel 字节序正确
-- ✅ 不同 macOS 版本兼容
-- ✅ 不同网络环境稳定
-
----
-
-## 🔧 测试工具
-
-### 自动化测试脚本
-```bash
-scripts/
-├── e2e/
-│   ├── run-all-tests.sh          # 运行所有 E2E 测试
-│   ├── test-local-network.sh     # 本地网络测试
-│   ├── test-remote-network.sh    # 远程网络测试
-│   ├── test-performance.sh       # 性能测试
-│   └── test-stability.sh         # 稳定性测试（长时间）
-```
-
-### 测试辅助工具
-```bash
-# 网络模拟
-sudo pfctl -E  # 模拟丢包
-tc qdisc add dev eth0 root netem delay 100ms  # 模拟延迟
-
-# 性能监控
-top -pid $(pgrep rdcs-agent)
-iostat -w 1
-networkQuality  # macOS 网络质量测试
-
-# 截图比对
-screencapture -x screenshot.png
-compare -metric RMSE screenshot1.png screenshot2.png diff.png
-```
-
----
-
-## 📋 测试检查清单
-
-### 测试前准备
-- [ ] 两台 Mac 都安装最新代码
-- [ ] 网络连通性测试
-- [ ] 防火墙配置正确
-- [ ] STUN 服务器可访问
-- [ ] 测试环境记录清楚
-
-### 场景 1: 本地网络测试
-- [ ] 被控端启动成功
-- [ ] 主控端发现设备
-- [ ] 连接建立成功
-- [ ] 视频流显示正常
-- [ ] 鼠标控制正常
-- [ ] 键盘输入正常
-- [ ] 性能指标达标
-- [ ] 断线重连成功
-- [ ] 正常退出
-
-### 场景 2: 远程网络测试
-- [ ] Relay 候选生成
-- [ ] 通过 Relay 连接
-- [ ] 视频流稳定
-- [ ] 性能可接受
-
-### 场景 3: 真实用户场景
-- [ ] 浏览网页流畅
-- [ ] 编辑文档正常
-- [ ] 视频播放流畅
-- [ ] 开发工具可用
-
-### 测试后验证
-- [ ] 记录测试结果
-- [ ] 截图和日志保存
-- [ ] 性能数据记录
-- [ ] 问题跟踪创建
-
----
-
-## 📊 测试报告模板
-
-### 执行测试后填写
-
-```markdown
-# E2E 测试报告
-
-**测试日期**: YYYY-MM-DD  
-**测试人员**: [Name]  
-**版本**: [Git commit hash]
-
-## 测试环境
-
-**主控端**:
-- 设备: Apple Silicon Mac (M1/M2/M3)
-- OS: macOS [version]
-- IP: [IP address]
-
-**被控端**:
-- 设备: Intel Mac
-- OS: macOS [version]
-- IP: [IP address]
-
-**网络**:
-- 类型: [本地网络/远程网络]
-- 延迟: [X]ms
-- 带宽: [X]Mbps
-
-## 测试结果
-
-### 场景 1: 本地网络远程桌面
-- 连接建立: [✅/❌] ([X]秒)
-- 视频显示: [✅/❌]
-- 输入控制: [✅/❌]
-- 性能指标:
-  - 延迟: [X]ms
-  - 帧率: [X]fps
-  - CPU: [X]%
-  - 内存: [X]MB
-
-### 场景 2: 远程网络测试
-- 状态: [✅/❌/⏭️ 未测试]
-- ...
-
-### 场景 3: 真实用户场景
-- 浏览网页: [✅/❌]
-- 编辑文档: [✅/❌]
-- 观看视频: [✅/❌]
-- 开发工具: [✅/❌]
-
-## 问题记录
-
-1. [问题描述]
-   - 严重性: [高/中/低]
-   - 复现步骤: ...
-   - 日志: ...
-
-## 结论
-
-- [ ] 测试通过，可以进入下一阶段
-- [ ] 测试部分通过，有[X]个问题需要修复
-- [ ] 测试失败，需要重大修复
-
-## 下一步
-
-1. ...
-2. ...
-```
-
----
-
-## 🚀 执行计划
-
-### 第一周: 准备阶段
-- [ ] Day 1: 完善测试脚本
-- [ ] Day 2-3: 修复已知问题（VideoToolbox）
-- [ ] Day 4-5: 搭建测试环境
-
-### 第二周: 执行测试
-- [ ] Day 1-2: 场景 1 测试（本地网络）
-- [ ] Day 3: 场景 2 测试（远程网络）
-- [ ] Day 4: 场景 3 测试（真实场景）
-- [ ] Day 5: 记录和修复
-
-### 第三周: 优化迭代
-- [ ] 修复发现的问题
-- [ ] 重新测试
-- [ ] 性能优化
-- [ ] 文档更新
-
----
-
-## 🎯 成功里程碑
-
-### Milestone 1: 基础连接 ✅
-- ICE 连接建立成功
-- DTLS 加密工作
-- 网络传输稳定
-
-### Milestone 2: 视频传输 🔄 当前
-- 屏幕捕获工作
-- 编码/解码正常
-- 视频显示流畅
-
-### Milestone 3: 输入控制 📋 计划
-- 鼠标控制
-- 键盘输入
-- 快捷键支持
-
-### Milestone 4: 跨架构验证 📋 计划
-- ARM ↔ Intel 兼容
-- 端到端测试通过
-- MVP 完成 🎉
-
----
-
-**制定人**: AI Assistant  
-**制定日期**: 2026-06-28  
-**版本**: v1.0  
-**状态**: ✅ 待执行
+**维护原则**: 每个测试层通过后在此文档记录结果和日期，不通过记录失败原因和修复 PR。

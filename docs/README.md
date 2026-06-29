@@ -9,7 +9,7 @@
 | 文档 | 说明 | 状态 |
 |------|------|------|
 | **[MVP 定义](MVP.md)** | 最小可行产品的定义和范围 | ✅ 已定义 |
-| **[当前阶段](CURRENT_PHASE.md)** | Phase 2 视频传输层（70%） | 🔄 活跃 |
+| **[当前阶段](CURRENT_PHASE.md)** | Phase 2 视频传输层（95%）⭐ | 🔄 活跃 |
 | **[E2E 测试方案](E2E_TEST_PLAN.md)** | 端到端测试计划 | ✅ 已制定 |
 | **[路线图](ROADMAP.md)** | 产品路线图 | ✅ 已制定 |
 
@@ -19,6 +19,9 @@
 
 ### 开发
 - [开发指南](DEVELOPMENT.md) — 开发环境搭建
+- [SDL2 显示实现](SDL2_DISPLAY_IMPLEMENTATION.md) — 显示模块实现报告 ⭐ NEW
+- [编解码状态分析](CODEC_STATUS_ANALYSIS.md) — 编解码模块分析 ⭐ NEW
+- [剩余工作分析](REMAINING_WORK.md) — Superpowers 工作计划
 - [下一步计划](progress/NEXT_STEPS.md) — 近期行动项
 - [项目状态](progress/final-project-status.md) — 整体进度
 
