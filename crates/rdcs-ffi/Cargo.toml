@@ -10,6 +10,8 @@ crate-type = ["cdylib", "staticlib", "rlib"]
 
 [dependencies]
 tokio = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
 rdcs-core = { path = "../rdcs-core" }
 rdcs-platform = { path = "../rdcs-platform" }
 rdcs-crypto = { path = "../rdcs-crypto" }
@@ -17,3 +19,6 @@ rdcs-transport = { path = "../rdcs-transport" }
 rdcs-codec = { path = "../rdcs-codec" }
 rdcs-connection = { path = "../rdcs-connection" }
 rdcs-transfer = { path = "../rdcs-transfer" }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+rdcs-macos = { path = "../rdcs-macos" }

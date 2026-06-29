@@ -27,6 +27,8 @@ use rdcs_platform::{
     CaptureConfig, ClipboardProvider, InputInjector, ScreenCapture, SystemNotify,
 };
 
+mod input_handler;
+
 // ---------------------------------------------------------------------------
 // Error codes (returned as negative i32 from extern "C" functions)
 // ---------------------------------------------------------------------------
@@ -167,6 +169,17 @@ pub extern "C" fn rdcs_engine_create(config_json: *const c_char) -> *mut EngineH
         Err(_) => return ptr::null_mut(),
     };
 
+    // Platform-specific initialization: use real implementations on macOS,
+    // mock implementations elsewhere.
+    #[cfg(target_os = "macos")]
+    let platform = Arc::new(PlatformBundle {
+        capture: Box::new(rdcs_macos::MacOsScreenCapture::new()),
+        input: Box::new(rdcs_macos::MacOsInputInjector::new()),
+        notify: Box::new(rdcs_macos::MacOsSystemNotify::new()),
+        clipboard: Box::new(rdcs_macos::MacOsClipboard::new()),
+    });
+
+    #[cfg(not(target_os = "macos"))]
     let platform = Arc::new(PlatformBundle {
         capture: Box::new(rdcs_platform::mock::MockScreenCapture::new()),
         input: Box::new(rdcs_platform::mock::MockInputInjector::new()),
@@ -345,14 +358,45 @@ pub extern "C" fn rdcs_send_input(
     if engine.shutdown.load(Ordering::SeqCst) {
         return RDCS_ERR_NOT_INITIALIZED;
     }
-    let _event = match cstr_to_string(event_json) {
+    let event_str = match cstr_to_string(event_json) {
         Ok(s) => s,
         Err(code) => return code,
     };
-    let _ = session_id; // TODO: route to correct session
 
-    // TODO: Wire to InputInjector via ConnectionManager
-    RDCS_OK
+    // For now, inject input locally to the primary display.
+    // TODO: route to correct session when ConnectionManager is wired.
+    let _ = session_id;
+
+    // Get the primary display ID
+    let display_id = match engine.platform.capture.displays() {
+        Ok(displays) => displays
+            .into_iter()
+            .find(|d| d.is_primary)
+            .map(|d| d.id)
+            .unwrap_or(0),
+        Err(_) => 0,
+    };
+
+    // Parse and inject the input event
+    match input_handler::handle_input_event(
+        engine.platform.input.as_ref(),
+        &event_str,
+        display_id,
+    ) {
+        Ok(()) => {
+            dispatch_event(
+                engine,
+                EVENT_INPUT_RECEIVED,
+                &format!(r#"{{"session_id":{session_id},"status":"injected"}}"#),
+            );
+            RDCS_OK
+        }
+        Err(e) => {
+            let error_msg = format!(r#"{{"session_id":{session_id},"error":"{e}"}}"#);
+            dispatch_event(engine, EVENT_INPUT_RECEIVED, &error_msg);
+            RDCS_ERR_INVALID_ARG
+        }
+    }
 }
 
 /// Initiate a file transfer to the remote session.
