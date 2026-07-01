@@ -11,13 +11,13 @@ jobs:
     strategy:
       matrix:
         include:
-          - runner: macos-14
+          # macos-14 deprecation begins July 2026; use macos-15 (arm64)
+          - runner: macos-15
             arch: arm64
             rust-target: aarch64-apple-darwin
 
-          # WARNING: macos-13 runner will be deprecated in Q4 2026
-          # Plan migration to self-hosted Intel runner or drop x64 support
-          - runner: macos-13
+          # macos-13 was retired December 2025; use macos-15-intel for x86_64
+          - runner: macos-15-intel
             arch: x64
             rust-target: x86_64-apple-darwin
 
