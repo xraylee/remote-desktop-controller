@@ -28,6 +28,7 @@ use rdcs_platform::{
 };
 
 mod input_handler;
+mod video_handler;
 
 // ---------------------------------------------------------------------------
 // Error codes (returned as negative i32 from extern "C" functions)

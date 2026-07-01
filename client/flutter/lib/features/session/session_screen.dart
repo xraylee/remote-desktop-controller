@@ -11,6 +11,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/config/config_repository.dart';
 import '../../core/theme.dart';
 import 'session_providers.dart';
+import 'video_renderer.dart';
 
 /// Session screen — full-screen remote desktop view with toolbars.
 ///
@@ -94,7 +95,7 @@ class _SessionScreenBodyState extends ConsumerState<_SessionScreenBody> {
     final code = ConfigRepository.formatDeviceCode(session.remoteDeviceCode);
     return Stack(
       children: [
-        const _VideoPlaceholder(),
+        const VideoRenderer(),
         Center(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -320,57 +321,6 @@ class _SessionScreenBodyState extends ConsumerState<_SessionScreenBody> {
             child: const Text('发送'),
           ),
         ],
-      ),
-    );
-  }
-}
-
-// ── Video placeholder ───────────────────────────────────────────
-
-/// Placeholder for the remote desktop video feed.
-///
-/// Displays a dark gradient with a grid pattern to represent the
-/// remote desktop surface. Will be replaced by a real video renderer
-/// (e.g. Texture widget backed by native FFI frame delivery) once
-/// the codec pipeline is implemented.
-class _VideoPlaceholder extends StatelessWidget {
-  const _VideoPlaceholder();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      height: double.infinity,
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            Color(0xFF1A1A2E),
-            Color(0xFF16213E),
-            Color(0xFF0F3460),
-          ],
-        ),
-      ),
-      child: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Icons.desktop_windows,
-              size: 64,
-              color: Colors.white.withOpacity(0.15),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              '远程桌面画面',
-              style: TextStyle(
-                color: Colors.white.withOpacity(0.25),
-                fontSize: 14,
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }

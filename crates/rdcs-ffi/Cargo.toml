@@ -12,11 +12,12 @@ crate-type = ["cdylib", "staticlib", "rlib"]
 tokio = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
+base64 = "0.22"
 rdcs-core = { path = "../rdcs-core" }
 rdcs-platform = { path = "../rdcs-platform" }
 rdcs-crypto = { path = "../rdcs-crypto" }
 rdcs-transport = { path = "../rdcs-transport" }
-rdcs-codec = { path = "../rdcs-codec" }
+rdcs-codec = { path = "../rdcs-codec", features = ["software-encoder"] }
 rdcs-connection = { path = "../rdcs-connection" }
 rdcs-transfer = { path = "../rdcs-transfer" }
 
