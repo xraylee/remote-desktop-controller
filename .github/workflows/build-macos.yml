@@ -16,6 +16,8 @@ jobs:
             rust-target: aarch64-apple-darwin
             flutter-arch: arm64
 
+          # WARNING: macos-13 runner will be deprecated in Q4 2026
+          # Plan migration to self-hosted Intel runner or drop x64 support
           - runner: macos-13
             arch: x64
             rust-target: x86_64-apple-darwin
@@ -57,6 +59,18 @@ jobs:
           cd client/flutter
           flutter build macos --release \
             --target-arch=${{ matrix.flutter-arch }}
+
+      - name: Verify library install_name
+        run: |
+          DYLIB="client/flutter/build/macos/Build/Products/Release/rdcs_client.app/Contents/Frameworks/librdcs_core.dylib"
+          echo "Verifying install_name for ${{ matrix.arch }}..."
+          otool -D "$DYLIB"
+          INSTALL_NAME=$(otool -D "$DYLIB" | tail -1)
+          if [ "$INSTALL_NAME" != "@rpath/librdcs_core.dylib" ]; then
+            echo "❌ install_name verification failed: $INSTALL_NAME"
+            exit 1
+          fi
+          echo "✅ install_name correct: $INSTALL_NAME"
 
       - name: Package DMG
         run: ./scripts/package_macos.sh ${{ matrix.arch }}

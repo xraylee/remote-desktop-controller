@@ -17,10 +17,21 @@ while [[ $# -gt 0 ]]; do
             ;;
         --arch)
             EXPLICIT_ARCH="$2"
+            if [ "$EXPLICIT_ARCH" != "arm64" ] && [ "$EXPLICIT_ARCH" != "x64" ]; then
+                echo "❌ --arch must be arm64 or x64, got: $EXPLICIT_ARCH"
+                exit 1
+            fi
             shift 2
             ;;
+        --help|-h)
+            echo "Usage: $0 [--release] [--arch arm64|x64]"
+            echo "  --release    Build in release mode (default: debug)"
+            echo "  --arch       Target architecture (default: auto-detect from uname -m)"
+            exit 0
+            ;;
         *)
-            echo "Unknown option: $1"
+            echo "❌ Unknown option: $1"
+            echo "   Run '$0 --help' for usage."
             exit 1
             ;;
     esac
@@ -74,7 +85,11 @@ if rustup target list | grep -q "^${RUST_TARGET} (installed)"; then
     echo "✅ Target installed: $RUST_TARGET"
 else
     echo "📥 Installing target: $RUST_TARGET"
-    rustup target add "$RUST_TARGET"
+    if ! rustup target add "$RUST_TARGET"; then
+        echo "❌ Failed to install Rust target: $RUST_TARGET"
+        echo "   Try: rustup update"
+        exit 1
+    fi
 fi
 
 # Build configuration
@@ -95,7 +110,14 @@ cd "$PROJECT_ROOT"
 
 # Build
 echo "⚙️  Running cargo build..."
-cargo build $BUILD_FLAG --target "$RUST_TARGET" --package rdcs-ffi
+if ! cargo build $BUILD_FLAG --target "$RUST_TARGET" --package rdcs-ffi; then
+    echo "❌ Cargo build failed"
+    echo "   Try cleaning and rebuilding:"
+    echo "     cargo clean"
+    echo "     rustup update"
+    echo "   Then re-run: $0"
+    exit 1
+fi
 echo "✅ Build complete"
 
 # Paths
