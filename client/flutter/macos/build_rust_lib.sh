@@ -122,7 +122,20 @@ echo "✅ Build complete"
 
 # Paths
 SRC_LIB="$PROJECT_ROOT/target/$RUST_TARGET/$BUILD_DIR/librdcs_core.dylib"
-DEST_DIR="${BUILT_PRODUCTS_DIR:-$PROJECT_ROOT/client/flutter/build/macos/Build/Products/$BUILD_DIR/rdcs_client.app}/Contents/Frameworks"
+
+# Determine destination directory
+if [ -n "$BUILT_PRODUCTS_DIR" ]; then
+    # Called from Xcode Build Phase - BUILT_PRODUCTS_DIR is set
+    DEST_DIR="$BUILT_PRODUCTS_DIR/rdcs_client.app/Contents/Frameworks"
+else
+    # Called from command line - use default build path
+    if [ "$BUILD_DIR" = "release" ]; then
+        DEST_DIR="$PROJECT_ROOT/client/flutter/build/macos/Build/Products/Release/rdcs_client.app/Contents/Frameworks"
+    else
+        DEST_DIR="$PROJECT_ROOT/client/flutter/build/macos/Build/Products/Debug/rdcs_client.app/Contents/Frameworks"
+    fi
+fi
+
 DEST_LIB="$DEST_DIR/librdcs_core.dylib"
 
 # Verify source

@@ -12,8 +12,8 @@ part 'app_config.g.dart';
 @freezed
 class AppConfig with _$AppConfig {
   const factory AppConfig({
-    @Default('ws://localhost:8080') String signalingServerUrl,
-    @Default('http://localhost:3000') String apiServerUrl,
+    @Default('wss://localhost:8443') String signalingServerUrl,
+    @Default('http://localhost:8080') String apiServerUrl,
     @Default(false) bool autoConnect,
     @Default(true) bool showNotifications,
     @Default('system') String theme,
