@@ -14,14 +14,12 @@ jobs:
           - runner: macos-14
             arch: arm64
             rust-target: aarch64-apple-darwin
-            flutter-arch: arm64
 
           # WARNING: macos-13 runner will be deprecated in Q4 2026
           # Plan migration to self-hosted Intel runner or drop x64 support
           - runner: macos-13
             arch: x64
             rust-target: x86_64-apple-darwin
-            flutter-arch: x64
 
     runs-on: ${{ matrix.runner }}
 
@@ -57,8 +55,7 @@ jobs:
       - name: Build Flutter app
         run: |
           cd client/flutter
-          flutter build macos --release \
-            --target-arch=${{ matrix.flutter-arch }}
+          flutter build macos --release
 
       - name: Verify library install_name
         run: |
