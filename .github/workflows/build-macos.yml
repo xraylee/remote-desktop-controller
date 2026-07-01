@@ -57,6 +57,24 @@ jobs:
           cd client/flutter
           flutter build macos --release
 
+      - name: Copy and fix Rust library
+        run: |
+          SRC_LIB="target/${{ matrix.rust-target }}/release/librdcs_core.dylib"
+          APP_BUNDLE="client/flutter/build/macos/Build/Products/Release/rdcs_client.app"
+          DEST_DIR="$APP_BUNDLE/Contents/Frameworks"
+          DEST_LIB="$DEST_DIR/librdcs_core.dylib"
+
+          echo "Copying Rust library for ${{ matrix.arch }}..."
+          mkdir -p "$DEST_DIR"
+          cp -v "$SRC_LIB" "$DEST_LIB"
+
+          echo "Fixing install_name..."
+          install_name_tool -id "@rpath/librdcs_core.dylib" "$DEST_LIB"
+
+          echo "Verifying..."
+          otool -D "$DEST_LIB"
+          file "$DEST_LIB"
+
       - name: Verify library install_name
         run: |
           DYLIB="client/flutter/build/macos/Build/Products/Release/rdcs_client.app/Contents/Frameworks/librdcs_core.dylib"
