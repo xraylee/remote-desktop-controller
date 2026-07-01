@@ -11,6 +11,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/config/config_provider.dart';
 import '../../core/config/config_repository.dart';
 import '../../core/ffi/engine_isolate.dart';
+import '../../core/ffi/engine_providers.dart';
 import '../../core/theme.dart';
 import '../session/session_providers.dart';
 
@@ -33,6 +34,19 @@ class HomePage extends ConsumerWidget {
         : '--- --- ---';
 
     return Scaffold(
+      appBar: AppBar(
+        title: const Text('RDCS 远程桌面'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.settings_outlined),
+            onPressed: () {
+              print('Settings button pressed'); // Debug
+              context.go('/settings');
+            },
+            tooltip: '设置',
+          ),
+        ],
+      ),
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -115,6 +129,13 @@ class HomePage extends ConsumerWidget {
                   label: const Text('连接远程设备'),
                 ),
                 const SizedBox(width: 16),
+                // Temporarily change to test settings navigation
+                OutlinedButton.icon(
+                  onPressed: () => context.go('/settings'),
+                  icon: const Icon(Icons.settings),
+                  label: const Text('测试设置'),
+                ),
+                const SizedBox(width: 16),
                 OutlinedButton.icon(
                   onPressed: () => _generateInviteCode(context, ref),
                   icon: const Icon(Icons.person_add_outlined),
@@ -177,7 +198,7 @@ class HomePage extends ConsumerWidget {
 
   Future<void> _generateInviteCode(BuildContext context, WidgetRef ref) async {
     try {
-      final engine = ref.read(engineProvider);
+      final engine = ref.read(engineIsolateProvider);
       final code = await engine.generateInvite();
       if (context.mounted) {
         showDialog(

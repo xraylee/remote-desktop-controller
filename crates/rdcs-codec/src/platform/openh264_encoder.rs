@@ -54,7 +54,8 @@ impl PlatformEncoder for OpenH264Encoder {
             width, height, fps, bitrate / 1000
         );
 
-        // 创建默认编码器
+        // 创建编码器（使用默认配置）
+        // OpenH264 会自动在第一帧生成 SPS/PPS
         let encoder = Encoder::new().map_err(|e| {
             CodecError::EncoderInitFailed(format!("OpenH264 encoder creation failed: {:?}", e))
         })?;
@@ -109,6 +110,14 @@ impl PlatformEncoder for OpenH264Encoder {
 
         // 提取编码数据
         let encoded_data = bitstream.to_vec();
+
+        // 调试：记录编码数据的 NAL 单元类型（前几帧）
+        if self.stats.frames_encoded.load(Ordering::Relaxed) < 3 {
+            debug!("Frame {} encoded data first 32 bytes: {:02X?}",
+                self.stats.frames_encoded.load(Ordering::Relaxed),
+                &encoded_data[..encoded_data.len().min(32)]
+            );
+        }
 
         // 检查是否是关键帧
         let is_keyframe = Self::is_keyframe(&encoded_data);

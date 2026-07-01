@@ -5,14 +5,13 @@ export default function MembersPage() {
   return (
     <div>
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900">成员管理</h1>
+        <h1 className="text-2xl font-bold text-gray-900">Members</h1>
       </div>
-      <p className="mt-2 text-gray-600">管理组织成员和权限分配（开发中）</p>
+      <p className="mt-2 text-gray-600">Manage organization members and role assignments (coming soon)</p>
 
-      {/* Placeholder table */}
       <div className="mt-6 overflow-hidden rounded-xl border border-gray-200 bg-white">
         <div className="px-6 py-12 text-center text-sm text-gray-400">
-          暂无成员数据
+          No members available
         </div>
       </div>
     </div>

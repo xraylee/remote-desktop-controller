@@ -201,7 +201,7 @@ class TrayService with TrayListener {
   List<MenuItem> _buildRecentSubmenu() {
     if (_recentConnections.isEmpty) {
       return [
-        const MenuItem(
+        MenuItem(
           key: 'recent_empty',
           label: '无',
           disabled: true,

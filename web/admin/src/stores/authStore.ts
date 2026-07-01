@@ -52,57 +52,102 @@ function saveRefreshToken(token: string | null): void {
   }
 }
 
+function saveAccessToken(token: string | null): void {
+  try {
+    if (token) {
+      localStorage.setItem('rdcs_access_token', token)
+    } else {
+      localStorage.removeItem('rdcs_access_token')
+    }
+  } catch {
+    // localStorage may be unavailable in some environments
+  }
+}
+
 // ---------- Store ----------
 
-export const useAuthStore = create<AuthState>()((set, get) => ({
-  accessToken: null,
-  refreshToken: loadRefreshToken(),
-  member: null,
-  isAuthenticated: false,
+export const useAuthStore = create<AuthState>()((set, get) => {
+  // Initialize state by checking localStorage synchronously
+  const storedRefreshToken = loadRefreshToken()
+  const storedAccessToken = storedRefreshToken ? localStorage.getItem('rdcs_access_token') : null
 
-  login: async (email: string, password: string, totpCode?: string) => {
-    const res = await loginRequest(email, password, totpCode)
+  // If tokens exist, restore session immediately
+  if (storedAccessToken && storedRefreshToken) {
+    setAccessToken(storedAccessToken)
+  }
 
-    // Sync token with the axios interceptor
-    setAccessToken(res.access_token)
-    saveRefreshToken(res.refresh_token)
+  return {
+    accessToken: storedAccessToken,
+    refreshToken: storedRefreshToken,
+    member: null,
+    isAuthenticated: !!storedRefreshToken,  // Key: restore auth state on init
 
-    set({
-      accessToken: res.access_token,
-      refreshToken: res.refresh_token,
-      member: dtoToMember(res.member),
-      isAuthenticated: true,
-    })
-  },
+    login: async (email: string, password: string, totpCode?: string) => {
+      const res = await loginRequest(email, password, totpCode)
 
-  logout: () => {
-    const { refreshToken } = get()
+      // Sync token with the axios interceptor
+      setAccessToken(res.access_token)
+      saveAccessToken(res.access_token)  // Persist access token
+      saveRefreshToken(res.refresh_token)
 
-    // Best-effort server-side logout
-    if (refreshToken) {
-      logoutRequest(refreshToken).catch(() => {
-        // Ignore errors during logout
+      set({
+        accessToken: res.access_token,
+        refreshToken: res.refresh_token,
+        member: dtoToMember(res.member),
+        isAuthenticated: true,
       })
-    }
+    },
 
-    setAccessToken(null)
-    saveRefreshToken(null)
+    logout: () => {
+      const { refreshToken } = get()
 
-    set({
-      accessToken: null,
-      refreshToken: null,
-      member: null,
-      isAuthenticated: false,
-    })
-  },
+      // Best-effort server-side logout
+      if (refreshToken) {
+        logoutRequest(refreshToken).catch(() => {
+          // Ignore errors during logout
+        })
+      }
 
-  restoreSession: () => {
-    // On app startup, if we have a stored refresh token we can mark the
-    // session as needing restoration. The actual token refresh is handled
-    // by the app's root component or a dedicated hook.
-    const stored = loadRefreshToken()
-    if (stored) {
-      set({ refreshToken: stored })
-    }
-  },
-}))
+      setAccessToken(null)
+      saveAccessToken(null)  // Clear access token
+      saveRefreshToken(null)
+
+      set({
+        accessToken: null,
+        refreshToken: null,
+        member: null,
+        isAuthenticated: false,
+      })
+    },
+
+    restoreSession: () => {
+      console.log('[authStore] restoreSession() called')
+
+      // On app startup, if we have a stored refresh token, restore the session.
+      // We mark isAuthenticated as true so the user can access protected routes.
+      const stored = loadRefreshToken()
+      console.log('[authStore] stored refresh_token:', stored ? 'exists' : 'null')
+
+      if (stored) {
+        // Try to restore access token from localStorage as well
+        const storedAccessToken = localStorage.getItem('rdcs_access_token')
+        console.log('[authStore] stored access_token:', storedAccessToken ? 'exists' : 'null')
+
+        if (storedAccessToken) {
+          setAccessToken(storedAccessToken)
+        }
+
+        set({
+          accessToken: storedAccessToken,
+          refreshToken: stored,
+          isAuthenticated: true  // Key fix: restore authenticated state
+        })
+
+        console.log('[authStore] Session restored, isAuthenticated = true')
+        // Note: if access token is expired, API calls will get 401 and redirect to login
+      } else {
+        console.log('[authStore] No refresh token found, session NOT restored')
+      }
+    },
+  }
+})

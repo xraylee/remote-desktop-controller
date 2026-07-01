@@ -58,9 +58,10 @@ pub enum NotificationRecord {
 /// ```
 /// use rdcs_platform::mock::MockScreenCapture;
 /// use rdcs_platform::{CapturedFrame, PixelFormat, CaptureConfig, ScreenCapture};
+/// use std::sync::Arc;
 ///
 /// let frame = CapturedFrame {
-///     data: vec![0u8; 4],
+///     data: Arc::from(vec![0u8; 4].into_boxed_slice()),
 ///     width: 1,
 ///     height: 1,
 ///     pixel_format: PixelFormat::Bgra,

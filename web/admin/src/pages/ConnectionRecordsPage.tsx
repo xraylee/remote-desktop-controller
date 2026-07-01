@@ -67,7 +67,7 @@ export default function ConnectionRecordsPage() {
       window.URL.revokeObjectURL(url)
     } catch (error) {
       console.error('Export failed:', error)
-      alert('导出失败，请重试')
+      alert('Export failed, please try again')
     }
   }
 
@@ -82,19 +82,19 @@ export default function ConnectionRecordsPage() {
   }
 
   const formatTimestamp = (ts: number) => {
-    return new Date(ts * 1000).toLocaleString('zh-CN')
+    return new Date(ts * 1000).toLocaleString('en-US')
   }
 
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'active':
-        return <span className="px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-700">进行中</span>
+        return <span className="px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-700">Active</span>
       case 'completed':
-        return <span className="px-2 py-1 text-xs font-medium rounded-full bg-gray-100 text-gray-700">已完成</span>
+        return <span className="px-2 py-1 text-xs font-medium rounded-full bg-gray-100 text-gray-700">Completed</span>
       case 'failed':
-        return <span className="px-2 py-1 text-xs font-medium rounded-full bg-red-100 text-red-700">失败</span>
+        return <span className="px-2 py-1 text-xs font-medium rounded-full bg-red-100 text-red-700">Failed</span>
       default:
-        return <span className="px-2 py-1 text-xs font-medium rounded-full bg-gray-100 text-gray-500">未知</span>
+        return <span className="px-2 py-1 text-xs font-medium rounded-full bg-gray-100 text-gray-500">Unknown</span>
     }
   }
 
@@ -103,12 +103,12 @@ export default function ConnectionRecordsPage() {
   return (
     <div>
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900">连接记录</h1>
+        <h1 className="text-2xl font-bold text-gray-900">Connection Records</h1>
         <button
           onClick={handleExportCSV}
           className="rounded-lg bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:bg-amber-700 transition-colors"
         >
-          导出 CSV
+          Export CSV
         </button>
       </div>
 
@@ -117,7 +117,7 @@ export default function ConnectionRecordsPage() {
         <div className="flex-1">
           <input
             type="text"
-            placeholder="搜索设备名称、设备码或用户..."
+            placeholder="Search by device name, code or user..."
             value={searchQuery}
             onChange={(e) => {
               setSearchQuery(e.target.value)
@@ -140,7 +140,7 @@ export default function ConnectionRecordsPage() {
                   : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
               }`}
             >
-              {range === 'today' ? '今天' : range === 'week' ? '本周' : range === 'month' ? '本月' : '全部'}
+              {range === 'today' ? 'Today' : range === 'week' ? 'This Week' : range === 'month' ? 'This Month' : 'All'}
             </button>
           ))}
         </div>
@@ -152,24 +152,12 @@ export default function ConnectionRecordsPage() {
           <table className="w-full">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  会话 ID
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  控制端
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  被控端
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  开始时间
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  时长
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  状态
-                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Session ID</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Controller</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Controlled</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Start Time</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Duration</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">

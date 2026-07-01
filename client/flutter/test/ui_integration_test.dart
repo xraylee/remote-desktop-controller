@@ -4,11 +4,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:rdcs_flutter/features/home/home_page.dart';
-import 'package:rdcs_flutter/features/session/connection_confirm_dialog.dart';
-import 'package:rdcs_flutter/features/session/session_screen.dart';
-import 'package:rdcs_flutter/core/config/config_provider.dart';
-import 'package:rdcs_flutter/core/theme.dart';
+import 'package:rdcs_client/features/home/home_page.dart';
+import 'package:rdcs_client/features/session/connection_confirm_dialog.dart';
+import 'package:rdcs_client/features/session/session_screen.dart';
+import 'package:rdcs_client/core/config/config_provider.dart';
+import 'package:rdcs_client/core/theme.dart';
 
 void main() {
   group('HomePage UI Tests', () {
@@ -16,7 +16,7 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           child: MaterialApp(
-            theme: RdcsTheme.light(),
+            theme: RdcsTheme.light,
             home: const HomePage(),
           ),
         ),
@@ -31,7 +31,7 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           child: MaterialApp(
-            theme: RdcsTheme.light(),
+            theme: RdcsTheme.light,
             home: const HomePage(),
           ),
         ),
@@ -45,7 +45,7 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           child: MaterialApp(
-            theme: RdcsTheme.light(),
+            theme: RdcsTheme.light,
             home: const HomePage(),
           ),
         ),
@@ -68,7 +68,7 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           child: MaterialApp(
-            theme: RdcsTheme.light(),
+            theme: RdcsTheme.light,
             home: const SessionScreen(),
           ),
         ),
@@ -84,7 +84,7 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           child: MaterialApp(
-            theme: RdcsTheme.light(),
+            theme: RdcsTheme.light,
             home: const SessionScreen(),
           ),
         ),
@@ -101,7 +101,7 @@ void main() {
     testWidgets('displays connection request correctly', (tester) async {
       await tester.pumpWidget(
         MaterialApp(
-          theme: RdcsTheme.light(),
+          theme: RdcsTheme.light,
           home: Scaffold(
             body: Builder(
               builder: (context) => ElevatedButton(
@@ -138,7 +138,7 @@ void main() {
     testWidgets('accept button works', (tester) async {
       await tester.pumpWidget(
         MaterialApp(
-          theme: RdcsTheme.light(),
+          theme: RdcsTheme.light,
           home: Scaffold(
             body: Builder(
               builder: (context) => ElevatedButton(
@@ -167,7 +167,7 @@ void main() {
     testWidgets('reject button works', (tester) async {
       await tester.pumpWidget(
         MaterialApp(
-          theme: RdcsTheme.light(),
+          theme: RdcsTheme.light,
           home: Scaffold(
             body: Builder(
               builder: (context) => ElevatedButton(
@@ -196,7 +196,7 @@ void main() {
     testWidgets('shows queued count badge', (tester) async {
       await tester.pumpWidget(
         MaterialApp(
-          theme: RdcsTheme.light(),
+          theme: RdcsTheme.light,
           home: Scaffold(
             body: Builder(
               builder: (context) => ElevatedButton(
@@ -225,7 +225,7 @@ void main() {
     testWidgets('countdown timer decrements', (tester) async {
       await tester.pumpWidget(
         MaterialApp(
-          theme: RdcsTheme.light(),
+          theme: RdcsTheme.light,
           home: Scaffold(
             body: Builder(
               builder: (context) => ElevatedButton(
@@ -269,7 +269,7 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           child: MaterialApp(
-            theme: RdcsTheme.light(),
+            theme: RdcsTheme.light,
             routes: {
               '/': (context) => const HomePage(),
               '/connect': (context) => Scaffold(
@@ -300,7 +300,7 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           child: MaterialApp(
-            theme: RdcsTheme.light(),
+            theme: RdcsTheme.light,
             home: const HomePage(),
           ),
         ),
@@ -322,7 +322,7 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           child: MaterialApp(
-            theme: RdcsTheme.light(),
+            theme: RdcsTheme.light,
             home: const SessionScreen(),
           ),
         ),
@@ -340,7 +340,7 @@ void main() {
     testWidgets('ConnectionConfirmDialog renders quickly', (tester) async {
       await tester.pumpWidget(
         MaterialApp(
-          theme: RdcsTheme.light(),
+          theme: RdcsTheme.light,
           home: Scaffold(
             body: Builder(
               builder: (context) => ElevatedButton(
@@ -380,7 +380,7 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           child: MaterialApp(
-            theme: RdcsTheme.light(),
+            theme: RdcsTheme.light,
             home: const HomePage(),
           ),
         ),
@@ -396,7 +396,7 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           child: MaterialApp(
-            theme: RdcsTheme.light(),
+            theme: RdcsTheme.light,
             home: const HomePage(),
           ),
         ),

@@ -60,13 +60,14 @@ mod macos_impl {
     ///
     /// # Safety
     /// The input must be null-terminated valid UTF-8.
-    unsafe fn make_nsstring(s: &[u8]) -> *mut Object {
-        let cls = Class::get("NSString").expect("NSString class not found");
+    unsafe fn make_nsstring(s: &[u8]) -> Result<*mut Object, PlatformError> {
+        let cls = Class::get("NSString")
+            .ok_or_else(|| PlatformError::NotSupported("NSString class not available".into()))?;
         let obj: *mut Object = msg_send![cls, alloc];
         let obj: *mut Object = msg_send![obj, initWithUTF8String: s.as_ptr()];
         // Autorelease so it's managed by the current pool.
         let _: () = msg_send![obj, autorelease];
-        obj
+        Ok(obj)
     }
 
     /// Convert an NSString pointer to a Rust String.
@@ -125,7 +126,7 @@ mod macos_impl {
             let pool = create_autorelease_pool()?;
             let result = (|| {
                 let pasteboard = general_pasteboard()?;
-                let type_str = make_nsstring(PLAIN_TEXT_UTI);
+                let type_str = make_nsstring(PLAIN_TEXT_UTI)?;
                 let text: *mut Object =
                     msg_send![pasteboard, stringForType: type_str];
                 Ok(nsstring_to_string(text).unwrap_or_default())
@@ -146,10 +147,10 @@ mod macos_impl {
                 // Create the value NSString.
                 let text_bytes: Vec<u8> =
                     text.bytes().chain(std::iter::once(0)).collect();
-                let value = make_nsstring(&text_bytes);
+                let value = make_nsstring(&text_bytes)?;
 
                 // Create the type NSString.
-                let type_str = make_nsstring(PLAIN_TEXT_UTI);
+                let type_str = make_nsstring(PLAIN_TEXT_UTI)?;
 
                 let success: bool =
                     msg_send![pasteboard, setString: value forType: type_str];

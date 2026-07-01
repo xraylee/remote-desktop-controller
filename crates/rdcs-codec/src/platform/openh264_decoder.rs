@@ -52,6 +52,14 @@ impl PlatformDecoder for OpenH264Decoder {
     fn decode(&mut self, data: &[u8]) -> Result<Frame, CodecError> {
         let start = Instant::now();
 
+        // 调试：记录接收数据的 NAL 单元类型
+        if self.stats.frames_decoded.load(Ordering::Relaxed) < 3 {
+            debug!("Decode attempt {} - input data first 32 bytes: {:02X?}",
+                self.stats.frames_decoded.load(Ordering::Relaxed),
+                &data[..data.len().min(32)]
+            );
+        }
+
         // 解码
         let yuv_option = self.decoder.decode(data).map_err(|e| {
             CodecError::DecodeFailed(format!("OpenH264 decode failed: {:?}", e))
@@ -59,7 +67,12 @@ impl PlatformDecoder for OpenH264Decoder {
 
         // 解包 Option<DecodedYUV>
         let yuv = yuv_option.ok_or_else(|| {
-            CodecError::DecodeFailed("OpenH264 decoder returned None".into())
+            // 记录更详细的错误信息
+            let nal_types = Self::parse_nal_types(data);
+            CodecError::DecodeFailed(format!(
+                "OpenH264 decoder returned None - NAL types in packet: {:?}, data size: {} bytes",
+                nal_types, data.len()
+            ))
         })?;
 
         let decode_time = start.elapsed().as_millis() as u64;
@@ -183,5 +196,27 @@ impl OpenH264Decoder {
             }
         }
         false
+    }
+
+    /// 解析数据中的所有 NAL 单元类型
+    fn parse_nal_types(data: &[u8]) -> Vec<u8> {
+        let mut nal_types = Vec::new();
+        let mut i = 0;
+        while i + 4 < data.len() {
+            if data[i] == 0x00
+                && data[i + 1] == 0x00
+                && data[i + 2] == 0x00
+                && data[i + 3] == 0x01
+            {
+                if i + 5 < data.len() {
+                    let nal_type = data[i + 4] & 0x1F;
+                    nal_types.push(nal_type);
+                }
+                i += 4;
+            } else {
+                i += 1;
+            }
+        }
+        nal_types
     }
 }

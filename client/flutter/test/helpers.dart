@@ -162,7 +162,7 @@ class TestSessionNotifier extends SessionNotifier {
 /// a [MaterialApp.router] that includes all major routes.
 ///
 /// Returns the container so tests can inspect provider state.
-ProviderContainer pumpTestApp(
+Future<ProviderContainer> pumpTestApp(
   WidgetTester tester, {
   String initialLocation = '/',
   RdcsConfig? config,

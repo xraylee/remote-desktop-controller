@@ -8,10 +8,14 @@ export default function ProtectedRoute({ children }: { children: React.ReactNode
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
   const location = useLocation()
 
+  console.log('[ProtectedRoute] Check auth:', isAuthenticated, 'path:', location.pathname)
+
   if (!isAuthenticated) {
+    console.log('[ProtectedRoute] Not authenticated, redirecting to /login')
     // Redirect to login, preserving the page they tried to visit
     return <Navigate to="/login" state={{ from: location }} replace />
   }
 
+  console.log('[ProtectedRoute] Authenticated, rendering protected content')
   return <>{children}</>
 }

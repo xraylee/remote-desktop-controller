@@ -6,6 +6,7 @@ license.workspace = true
 description = "C ABI bridge for Flutter/Dart integration with the RDCS Rust engine"
 
 [lib]
+name = "rdcs_core"
 crate-type = ["cdylib", "staticlib", "rlib"]
 
 [dependencies]
@@ -13,13 +14,18 @@ tokio = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 base64 = "0.22"
+rand = "0.8"
 rdcs-core = { path = "../rdcs-core" }
 rdcs-platform = { path = "../rdcs-platform" }
 rdcs-crypto = { path = "../rdcs-crypto" }
 rdcs-transport = { path = "../rdcs-transport" }
-rdcs-codec = { path = "../rdcs-codec", features = ["software-encoder"] }
+rdcs-codec = { path = "../rdcs-codec" }
 rdcs-connection = { path = "../rdcs-connection" }
 rdcs-transfer = { path = "../rdcs-transfer" }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 rdcs-macos = { path = "../rdcs-macos" }
+
+[features]
+default = ["software-encoder"]
+software-encoder = ["rdcs-codec/software-encoder"]

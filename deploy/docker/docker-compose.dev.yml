@@ -21,16 +21,14 @@ services:
       context: ../..
       dockerfile: deploy/docker/Dockerfile.signaling.dev
     volumes:
-      - ../../crates/rdcs-signaling/src:/app/crates/rdcs-signaling/src
-      - ../../crates/rdcs-core/src:/app/crates/rdcs-core/src
-      - ../../crates/rdcs-crypto/src:/app/crates/rdcs-crypto/src
-      - ../../crates/rdcs-transport/src:/app/crates/rdcs-transport/src
-      - ../../crates/rdcs-connection/src:/app/crates/rdcs-connection/src
+      - ../../crates:/app/crates
     environment:
       RUST_LOG: debug
-      SKIP_TLS: "true"
-      REDIS_URL: redis://redis:6379
-      SIGNALING_PORT: "8443"
+      RDCS_BIND_ADDR: "0.0.0.0:8443"
+      RDCS_REDIS_URL: redis://redis:6379
+      RDCS_HMAC_SECRET: ${RELAY_HMAC_SECRET:-dev_hmac_secret_change_in_prod}
+      RDCS_RELAY_NODES: '[{"addr":"relay","port":3478,"region":"local","max_sessions":48}]'
+      RDCS_LOG_LEVEL: debug
     restart: "no"
     <<: *dev-logging
 
@@ -42,13 +40,10 @@ services:
       context: ../..
       dockerfile: deploy/docker/Dockerfile.relay.dev
     volumes:
-      - ../../crates/rdcs-relay/src:/app/crates/rdcs-relay/src
-      - ../../crates/rdcs-core/src:/app/crates/rdcs-core/src
-      - ../../crates/rdcs-crypto/src:/app/crates/rdcs-crypto/src
-      - ../../crates/rdcs-transport/src:/app/crates/rdcs-transport/src
+      - ../../crates:/app/crates
     environment:
       RUST_LOG: debug
-      RELAY_SLOTS: "48"
+      RELAY_HMAC_SECRET: ${RELAY_HMAC_SECRET:-dev_hmac_secret_change_in_prod}
       RELAY_MIN_PORT: "49152"
       RELAY_MAX_PORT: "49200"
     restart: "no"
@@ -66,16 +61,8 @@ services:
     environment:
       LOG_LEVEL: debug
       SKIP_TOTP: "true"
-      DB_HOST: postgres
-      DB_PORT: "5432"
-      DB_USER: rdcs
-      DB_PASSWORD: rdcs_dev
-      DB_NAME: rdcs
-      REDIS_HOST: redis
-      REDIS_PORT: "6379"
-      MINIO_ENDPOINT: minio:9000
-      MINIO_ACCESS_KEY: minioadmin
-      MINIO_SECRET_KEY: minioadmin_dev
+      DATABASE_URL: postgres://rdcs:${POSTGRES_PASSWORD:-rdcs_dev}@postgres:5432/rdcs?sslmode=disable
+      REDIS_URL: redis://redis:6379
     restart: "no"
     <<: *dev-logging
 

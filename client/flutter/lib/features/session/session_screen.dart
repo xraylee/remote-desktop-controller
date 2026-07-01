@@ -129,12 +129,12 @@ class _SessionScreenBodyState extends ConsumerState<_SessionScreenBody> {
   Widget _buildConnectedView(BuildContext context, SessionInfo session) {
     return Stack(
       children: [
-        // Remote desktop video area (placeholder + input capture).
+        // Remote desktop video area (real video + input capture).
         GestureDetector(
           onTap: _onVideoTap,
           onPanUpdate: _onVideoPanUpdate,
           onDoubleTap: _onVideoDoubleTap,
-          child: const _VideoPlaceholder(),
+          child: const VideoRenderer(),
         ),
 
         // Top toolbar.

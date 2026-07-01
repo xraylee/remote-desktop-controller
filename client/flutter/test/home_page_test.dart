@@ -4,6 +4,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:rdcs_client/core/config/config_model.dart';
+import 'package:rdcs_client/features/session/session_providers.dart';
 
 import 'helpers.dart';
 

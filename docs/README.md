@@ -27,6 +27,8 @@
 
 ### 测试
 - [测试规范](testing/TESTING_GUIDELINES.md) — 测试标准和流程
+- [Signaling 服务测试验证](testing/SIGNALING_TEST_VERIFICATION.md) — 信令服务器测试报告
+- [Web Admin 测试验证](testing/WEB_ADMIN_TEST_VERIFICATION.md) — Web 管理端测试报告 ⭐ NEW
 - [跨架构测试](testing/CROSS_ARCHITECTURE_TEST.md) — ARM ↔ Intel 测试指南
 - [VideoToolbox 诊断](testing/VIDEOTOOLBOX_CRASH_DIAGNOSIS.md) — 已知崩溃问题
 

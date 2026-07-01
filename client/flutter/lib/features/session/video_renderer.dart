@@ -10,6 +10,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/ffi/engine_events.dart';
+import '../../core/ffi/engine_providers.dart';
 import 'session_providers.dart';
 
 /// Video renderer widget for displaying remote desktop frames.
@@ -54,14 +55,22 @@ class _VideoRendererState extends ConsumerState<VideoRenderer> {
 
   /// Subscribe to ENGINE_FRAME_READY events from the Rust engine.
   void _subscribeToFrameEvents() {
-    // TODO: Get event stream from engine provider
-    // For now, this is a placeholder structure
-    // _eventSubscription = ref.read(engineProvider).eventStream.listen((event) {
-    //   if (event.type == EngineEventId.frameReady) {
-    //     final payload = FramePayload.fromJson(event.payload);
-    //     _onFrameReceived(payload);
-    //   }
-    // });
+    // Subscribe to the engine event stream
+    _eventSubscription = ref.read(engineEventsProvider.stream).listen(
+      (event) {
+        if (event.type == EngineEventId.frameReady) {
+          try {
+            final payload = FramePayload.fromJson(event.payload);
+            _onFrameReceived(payload);
+          } catch (e) {
+            debugPrint('❌ Failed to parse frame payload: $e');
+          }
+        }
+      },
+      onError: (error) {
+        debugPrint('❌ Engine event stream error: $error');
+      },
+    );
   }
 
   /// Handle a received video frame.

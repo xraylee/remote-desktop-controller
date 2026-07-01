@@ -153,8 +153,9 @@ mod macos_impl {
             };
 
             // Extract pixel data via the data provider.
-            // OPTIMIZATION NOTE: This involves a memory copy. Using IOSurface
-            // with CGDisplayStream would enable zero-copy access.
+            // OPTIMIZATION: Changed from Vec<u8> to Arc<[u8]> to enable zero-copy
+            // sharing between capture and encode threads. This reduces memory
+            // allocation pressure and eliminates one full frame copy.
             let provider = CGImageGetDataProvider(image);
             let data = if !provider.is_null() {
                 let cf_data = CGDataProviderCopyData(provider);
@@ -163,12 +164,12 @@ mod macos_impl {
                     let ptr = CFDataGetBytePtr(cf_data);
                     let bytes = std::slice::from_raw_parts(ptr, len).to_vec();
                     CFRelease(cf_data);
-                    bytes
+                    Arc::from(bytes.into_boxed_slice())
                 } else {
-                    Vec::new()
+                    Arc::from(Box::new([]) as Box<[u8]>)
                 }
             } else {
-                Vec::new()
+                Arc::from(Box::new([]) as Box<[u8]>)
             };
 
             CFRelease(image);

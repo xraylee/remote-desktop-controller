@@ -1,7 +1,9 @@
 // Copyright 2026 RDCS Contributors
 // SPDX-License-Identifier: Apache-2.0
 
+import { useEffect } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
+import { useAuthStore } from '@/stores/authStore'
 import Layout from '@/components/Layout'
 import ProtectedRoute from '@/components/ProtectedRoute'
 import LoginPage from '@/pages/LoginPage'
@@ -13,6 +15,13 @@ import MembersPage from '@/pages/MembersPage'
 import SettingsPage from '@/pages/SettingsPage'
 
 export default function App() {
+  const restoreSession = useAuthStore((s) => s.restoreSession)
+
+  // Restore session on app mount
+  useEffect(() => {
+    restoreSession()
+  }, [restoreSession])
+
   return (
     <Routes>
       {/* Public routes */}

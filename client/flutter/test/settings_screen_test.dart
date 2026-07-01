@@ -7,6 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:rdcs_client/core/config/config_model.dart';
 import 'package:rdcs_client/core/config/config_provider.dart';
+import 'package:rdcs_client/features/settings/settings_screen.dart';
 import 'helpers.dart';
 
 void main() {

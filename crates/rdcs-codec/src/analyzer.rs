@@ -8,6 +8,7 @@
 
 use rdcs_platform::CapturedFrame;
 use serde::{Deserialize, Serialize};
+use std::sync::Arc;
 
 // ---------------------------------------------------------------------------
 // Scene classification types
@@ -76,7 +77,7 @@ pub trait ContentAnalyzer: Send {
 #[derive(Debug)]
 pub struct DefaultContentAnalyzer {
     /// Pixel data of the previous frame (BGRA/RGBA, 4 bytes per pixel).
-    prev_data: Option<Vec<u8>>,
+    prev_data: Option<Arc<[u8]>>,
     /// Width of the previous frame.
     prev_width: u32,
     /// Height of the previous frame.

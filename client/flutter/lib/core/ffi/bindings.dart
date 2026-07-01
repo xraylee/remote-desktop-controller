@@ -29,7 +29,7 @@ typedef EventCallbackNative = Void Function(
 ///   - Linux:   librdcs_core.so
 ///   - Windows: rdcs_core.dll
 class RdcsBindings {
-  RdcsBindings() : _lib = _loadLibrary() {
+  RdcsBindings({String? libraryPath}) : _lib = _loadLibrary(libraryPath) {
     _bindFunctions();
   }
 
@@ -37,9 +37,70 @@ class RdcsBindings {
 
   // ── Library loading ──────────────────────────────────────────
 
-  static DynamicLibrary _loadLibrary() {
+  /// Cached library path to reuse in isolates
+  static String? _cachedLibraryPath;
+
+  /// Get the cached library path (for passing to isolates)
+  static String? get cachedLibraryPath => _cachedLibraryPath;
+
+  static DynamicLibrary _loadLibrary([String? providedPath]) {
+    // If path is provided (from cache), use it directly
+    if (providedPath != null) {
+      return DynamicLibrary.open(providedPath);
+    }
     if (Platform.isMacOS) {
-      return DynamicLibrary.open('librdcs_core.dylib');
+      // Try multiple locations in order of preference:
+      // 1. Relative to executable (inside .app bundle)
+      // 2. Frameworks directory in bundle
+      // 3. System library path (development)
+
+      final executablePath = Platform.resolvedExecutable;
+      print('🔍 Executable path: $executablePath');
+
+      // Calculate Frameworks path
+      final appDir = Directory(executablePath).parent.parent.parent.path;
+      final frameworksPath = '$appDir/Contents/Frameworks/librdcs_core.dylib';
+      print('🔍 Trying Frameworks: $frameworksPath');
+      print('   Exists: ${File(frameworksPath).existsSync()}');
+
+      // Try loading from Frameworks directory
+      if (File(frameworksPath).existsSync()) {
+        try {
+          print('✅ Loading from: $frameworksPath');
+          _cachedLibraryPath = frameworksPath;
+          return DynamicLibrary.open(frameworksPath);
+        } catch (e) {
+          print('❌ Failed to load from Frameworks: $e');
+        }
+      }
+
+      // Try simple name (system library path)
+      try {
+        print('🔍 Trying simple name: librdcs_core.dylib');
+        final lib = DynamicLibrary.open('librdcs_core.dylib');
+        _cachedLibraryPath = 'librdcs_core.dylib';
+        return lib;
+      } catch (e) {
+        print('❌ Failed to load by simple name: $e');
+      }
+
+      // Try current directory
+      final cwdPath = './librdcs_core.dylib';
+      print('🔍 Trying current directory: $cwdPath');
+      print('   Exists: ${File(cwdPath).existsSync()}');
+
+      if (File(cwdPath).existsSync()) {
+        print('✅ Loading from: $cwdPath');
+        _cachedLibraryPath = cwdPath;
+        return DynamicLibrary.open(cwdPath);
+      }
+
+      throw Exception(
+        'Failed to load librdcs_core.dylib. Tried:\n'
+        '  1. $frameworksPath (exists: ${File(frameworksPath).existsSync()})\n'
+        '  2. librdcs_core.dylib (system path)\n'
+        '  3. $cwdPath (exists: ${File(cwdPath).existsSync()})',
+      );
     } else if (Platform.isLinux) {
       return DynamicLibrary.open('librdcs_core.so');
     } else if (Platform.isWindows) {

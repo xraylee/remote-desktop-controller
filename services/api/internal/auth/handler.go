@@ -95,25 +95,35 @@ func NewHandler(members repository.MemberRepository, privateKey string, issuer s
 func (h *Handler) HandleLogin(w http.ResponseWriter, r *http.Request) {
 	var req LoginRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		slog.Warn("login: invalid request body", "error", err)
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid_request_body"})
 		return
 	}
 
 	if req.Email == "" || req.Password == "" {
+		slog.Warn("login: missing email or password")
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "email and password are required"})
 		return
 	}
 
+	slog.Info("login: attempting login", "email", req.Email)
+
 	member, err := h.Members.GetByEmail(r.Context(), req.Email)
 	if err != nil {
+		slog.Warn("login: user not found", "email", req.Email, "error", err)
 		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "invalid_credentials"})
 		return
 	}
 
+	slog.Info("login: user found", "email", req.Email, "member_id", member.ID.String(), "password_hash_len", len(member.PasswordHash))
+
 	if err := bcrypt.CompareHashAndPassword([]byte(member.PasswordHash), []byte(req.Password)); err != nil {
+		slog.Warn("login: password mismatch", "email", req.Email, "error", err)
 		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "invalid_credentials"})
 		return
 	}
+
+	slog.Info("login: password verified", "email", req.Email)
 
 	// TOTP two-factor authentication check.
 	if member.TotpEnabled {
@@ -126,6 +136,8 @@ func (h *Handler) HandleLogin(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+
+	slog.Info("login: generating token pair", "email", req.Email)
 
 	tokens, err := GenerateTokenPair(member, h.PrivateKey)
 	if err != nil {
@@ -146,6 +158,7 @@ func (h *Handler) HandleLogin(w http.ResponseWriter, r *http.Request) {
 		},
 	}
 
+	slog.Info("login: success", "email", req.Email)
 	writeJSON(w, http.StatusOK, resp)
 }
 

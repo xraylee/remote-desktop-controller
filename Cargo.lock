@@ -2075,13 +2075,18 @@ dependencies = [
 name = "rdcs-ffi"
 version = "0.1.0"
 dependencies = [
+ "base64 0.22.1",
+ "rand 0.8.6",
  "rdcs-codec",
  "rdcs-connection",
  "rdcs-core",
  "rdcs-crypto",
+ "rdcs-macos",
  "rdcs-platform",
  "rdcs-transfer",
  "rdcs-transport",
+ "serde",
+ "serde_json",
  "tokio",
 ]
 

@@ -1,0 +1,66 @@
+# Git
+.git
+.gitignore
+.gitattributes
+
+# Documentation
+*.md
+docs/
+
+# Development files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Build artifacts
+target/
+dist/
+build/
+*.o
+*.a
+*.so
+*.dylib
+*.dll
+
+# Dependencies
+node_modules/
+vendor/
+
+# Flutter/Dart
+clients/flutter/.dart_tool/
+clients/flutter/build/
+clients/flutter/.flutter-plugins
+clients/flutter/.flutter-plugins-dependencies
+clients/flutter/.packages
+clients/flutter/pubspec.lock
+
+# Logs
+*.log
+logs/
+
+# Test files
+*_test.go
+*_test.rs
+test/
+tests/
+
+# Environment
+.env.local
+.env.*.local
+*.pem
+*.key
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker
+docker-compose.override.yml
+.dockerignore
+
+# Temporary
+tmp/
+temp/
+*.tmp

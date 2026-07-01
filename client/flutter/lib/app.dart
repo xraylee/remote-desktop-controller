@@ -14,6 +14,7 @@ import 'features/connect/connect_page.dart';
 import 'features/session/session_screen.dart';
 import 'features/admin/admin_page.dart';
 import 'features/settings/settings_screen.dart';
+import 'features/debug/signaling_debug_page.dart';
 
 // ── Dark mode provider ────────────────────────────────────────
 
@@ -57,6 +58,11 @@ final goRouterProvider = Provider<GoRouter>((ref) {
         path: '/settings',
         name: 'settings',
         builder: (context, state) => const SettingsScreen(),
+      ),
+      GoRoute(
+        path: '/debug/signaling',
+        name: 'signaling-debug',
+        builder: (context, state) => const SignalingDebugPage(),
       ),
     ],
     errorBuilder: (context, state) => Scaffold(
@@ -192,7 +198,7 @@ class _RdcsAppState extends ConsumerState<RdcsApp> with WindowListener {
         elevation: 0,
         scrolledUnderElevation: 1,
       ),
-      cardTheme: CardTheme(
+      cardTheme: CardThemeData(
         color: const Color(0xFF1F2937),
         elevation: 0,
         shape: RoundedRectangleBorder(

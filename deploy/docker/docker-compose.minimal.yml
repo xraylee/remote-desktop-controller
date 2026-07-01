@@ -1,0 +1,67 @@
+# Copyright 2026 RDCS Contributors
+# SPDX-License-Identifier: Apache-2.0
+
+# 最小化开发配置 - 只启动数据库服务
+# 用于本地开发，客户端直接连接 localhost
+
+services:
+  # ===========================================
+  # PostgreSQL - Primary database
+  # ===========================================
+  postgres:
+    image: postgres:16-alpine
+    container_name: rdcs-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: rdcs
+      POSTGRES_USER: rdcs
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-rdcs_dev}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ../../migrations/postgres:/docker-entrypoint-initdb.d
+    networks:
+      - rdcs-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U rdcs -d rdcs"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # ===========================================
+  # Redis - Session cache & real-time state
+  # ===========================================
+  redis:
+    image: redis:7-alpine
+    container_name: rdcs-redis
+    restart: unless-stopped
+    command: >
+      redis-server
+      --notify-keyspace-events Ex
+      --maxmemory 256mb
+      --maxmemory-policy allkeys-lru
+      --appendonly yes
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - rdcs-net
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+
+networks:
+  rdcs-net:
+    driver: bridge
+
+volumes:
+  pgdata:
+    driver: local
+  redis_data:
+    driver: local

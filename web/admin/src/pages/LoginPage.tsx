@@ -30,7 +30,7 @@ export default function LoginPage() {
       navigate(from, { replace: true })
     } catch (err) {
       const message =
-        err instanceof Error ? err.message : '登录失败，请检查邮箱和密码'
+        err instanceof Error ? err.message : 'Login failed, please check your email and password'
       setError(message)
     } finally {
       setLoading(false)
@@ -46,7 +46,7 @@ export default function LoginPage() {
             R
           </div>
           <h1 className="text-2xl font-bold text-gray-900">RDCS Admin Console</h1>
-          <p className="mt-1 text-sm text-gray-500">远程桌面控制系统 - 管理控制台</p>
+          <p className="mt-1 text-sm text-gray-500">Remote Desktop Control System - Admin Console</p>
         </div>
 
         {/* Login form */}
@@ -59,7 +59,7 @@ export default function LoginPage() {
 
           <div>
             <label htmlFor="email" className="block text-sm font-medium text-gray-700">
-              邮箱
+              Email
             </label>
             <input
               id="email"
@@ -75,7 +75,7 @@ export default function LoginPage() {
 
           <div>
             <label htmlFor="password" className="block text-sm font-medium text-gray-700">
-              密码
+              Password
             </label>
             <input
               id="password"
@@ -92,7 +92,7 @@ export default function LoginPage() {
           {showTotp && (
             <div>
               <label htmlFor="totp" className="block text-sm font-medium text-gray-700">
-                双因素验证码
+                Two-Factor Authentication Code
               </label>
               <input
                 id="totp"
@@ -114,7 +114,7 @@ export default function LoginPage() {
               onClick={() => setShowTotp(true)}
               className="text-xs text-blue-600 hover:text-blue-700"
             >
-              启用双因素验证码
+              Enable Two-Factor Authentication
             </button>
           )}
 
@@ -123,7 +123,7 @@ export default function LoginPage() {
             disabled={loading}
             className="w-full rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {loading ? '登录中...' : '登录'}
+            {loading ? 'Signing in...' : 'Sign in'}
           </button>
         </form>
       </div>

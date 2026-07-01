@@ -99,7 +99,7 @@ impl PortPool {
     /// Returns [`SessionError::NoPortsAvailable`] when the pool is exhausted.
     pub fn allocate_pair(&mut self) -> Result<(u16, u16), SessionError> {
         // Iterate aligned even-port pairs.
-        let start = if self.min_port.is_multiple_of(2) {
+        let start = if self.min_port % 2 == 0 {
             self.min_port
         } else {
             self.min_port + 1

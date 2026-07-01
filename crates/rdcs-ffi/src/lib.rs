@@ -20,12 +20,19 @@ use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 
 use tokio::runtime::Runtime;
+use tokio::sync::mpsc;
 
 // Import engine types for integration.
+use rdcs_codec::platform::NativeVideoEncoder;
+use rdcs_codec::types::{VideoCodec, VideoResolution};
 use rdcs_crypto::CryptoSession;
 use rdcs_platform::{
-    CaptureConfig, ClipboardProvider, InputInjector, ScreenCapture, SystemNotify,
+    CaptureConfig, CapturedFrame, ClipboardProvider, InputInjector, PixelFormat, ScreenCapture,
+    SystemNotify,
 };
+
+#[cfg(target_os = "macos")]
+use rdcs_macos::scaling;
 
 mod input_handler;
 mod video_handler;
@@ -85,7 +92,7 @@ pub struct PlatformBundle {
 /// All other FFI functions require a valid handle.
 pub struct EngineHandle {
     /// Tokio runtime for async operations (will be used when core engine is wired).
-    _runtime: Runtime,
+    runtime: Runtime,
     /// Placeholder for the actual CoreEngine (to be implemented).
     // engine: Arc<CoreEngine>,
     /// Registered event callbacks.
@@ -98,6 +105,10 @@ pub struct EngineHandle {
     crypto_factory: Arc<dyn Fn() -> CryptoSession + Send + Sync>,
     /// Bundle of platform-specific trait implementations.
     platform: Arc<PlatformBundle>,
+    /// Video frame handler for decoding and dispatching frames.
+    video_handler: Arc<video_handler::VideoFrameHandler>,
+    /// Shutdown signal for background tasks.
+    shutdown_tx: Arc<Mutex<Option<mpsc::Sender<()>>>>,
 }
 
 struct CallbackEntry {
@@ -198,12 +209,14 @@ pub extern "C" fn rdcs_engine_create(config_json: *const c_char) -> *mut EngineH
     };
 
     let handle = Box::new(EngineHandle {
-        _runtime: runtime,
+        runtime,
         callbacks: Arc::new(Mutex::new(Vec::new())),
         shutdown: AtomicBool::new(false),
         next_session_id: AtomicU64::new(1),
         crypto_factory,
         platform,
+        video_handler: Arc::new(video_handler::VideoFrameHandler::new()),
+        shutdown_tx: Arc::new(Mutex::new(None)),
     });
 
     Box::into_raw(handle)
@@ -219,7 +232,13 @@ pub extern "C" fn rdcs_engine_destroy(handle: *mut EngineHandle) {
     }
     let engine = unsafe { Box::from_raw(handle) };
     engine.shutdown.store(true, Ordering::SeqCst);
-    // Drop order: shutdown flag set, then runtime drops (cancels tasks),
+
+    // Signal video loop to stop
+    if let Some(tx) = engine.shutdown_tx.lock().unwrap().take() {
+        let _ = tx.try_send(());
+    }
+
+    // Drop order: shutdown flag set, signal sent, then runtime drops (cancels tasks),
     // then callbacks dropped.
     drop(engine);
 }
@@ -249,17 +268,216 @@ pub extern "C" fn rdcs_start_capture(
     // a future iteration will parse fps/resolution fields from config_json.
     let config = CaptureConfig::default();
 
-    match engine.platform.capture.start(config) {
-        Ok(_rx) => {
-            dispatch_event(engine, EVENT_FRAME_READY, r#"{"status":"started"}"#);
-            RDCS_OK
-        }
+    // Start screen capture
+    let frame_rx = match engine.platform.capture.start(config) {
+        Ok(rx) => rx,
         Err(e) => {
-            let msg = format!(r#"{{"error":"{e}"}}"#);
+            let msg = format!(r#"{{"error":"{}"}}"#, e);
             dispatch_event(engine, EVENT_FRAME_READY, &msg);
-            RDCS_ERR_INTERNAL
+            return RDCS_ERR_INTERNAL;
         }
-    }
+    };
+
+    // Create shutdown channel
+    let (shutdown_tx, mut shutdown_rx) = mpsc::channel::<()>(1);
+    *engine.shutdown_tx.lock().unwrap() = Some(shutdown_tx);
+
+    // Create async channel to bridge sync receiver to async task
+    let (async_tx, mut async_rx) = mpsc::channel::<CapturedFrame>(10);
+
+    // Get the actual screen resolution from the first frame
+    let first_frame = match frame_rx.recv() {
+        Ok(frame) => frame,
+        Err(_) => {
+            let msg = r#"{"error":"Failed to receive first frame"}"#;
+            dispatch_event(engine, EVENT_FRAME_READY, msg);
+            return RDCS_ERR_INTERNAL;
+        }
+    };
+
+    let actual_width = first_frame.width;
+    let actual_height = first_frame.height;
+    println!("📐 Detected screen resolution: {}×{}", actual_width, actual_height);
+
+    // Target resolution for encoding (balance quality vs bandwidth)
+    let (target_width, target_height) = if actual_width <= 1920 && actual_height <= 1080 {
+        // Already reasonable size, use as-is
+        (actual_width, actual_height)
+    } else {
+        // Scale down to 1080p to save bandwidth
+        // Maintain aspect ratio
+        let aspect_ratio = actual_width as f32 / actual_height as f32;
+        if aspect_ratio > 16.0 / 9.0 {
+            // Wider than 16:9, fit to width
+            (1920, (1920.0 / aspect_ratio) as u32)
+        } else {
+            // Taller than 16:9, fit to height
+            ((1080.0 * aspect_ratio) as u32, 1080)
+        }
+    };
+
+    println!("🎯 Target encoding resolution: {}×{}", target_width, target_height);
+    println!("📉 Scaling ratio: {:.1}%", (target_width as f32 / actual_width as f32) * 100.0);
+
+    // Determine encoder resolution enum
+    let encoder_resolution = if target_width == 1920 && target_height == 1080 {
+        VideoResolution::HD1080
+    } else if target_width == 1280 && target_height == 720 {
+        VideoResolution::HD720
+    } else {
+        VideoResolution::Custom(target_width, target_height)
+    };
+
+    // Spawn blocking thread to receive frames from sync channel
+    let first_frame_clone = first_frame.clone();
+    std::thread::spawn(move || {
+        // Send the first frame we already received
+        if async_tx.blocking_send(first_frame_clone).is_err() {
+            return;
+        }
+        // Continue receiving remaining frames
+        while let Ok(frame) = frame_rx.recv() {
+            if async_tx.blocking_send(frame).is_err() {
+                break; // Channel closed
+            }
+        }
+    });
+
+    // Spawn encode+decode loop (async task)
+    let video_handler = Arc::clone(&engine.video_handler);
+    let engine_ptr = handle as usize; // Store as usize for Send
+    let session_id = 1u64; // Mock session ID
+
+    engine.runtime.spawn(async move {
+        // Calculate appropriate bitrate for 2 MB/s target
+        // 2 MB/s = 16 Mbps total budget
+        // Reserve some for audio/control: use 2 Mbps for video
+        let target_bitrate = 2_000_000; // 2 Mbps
+
+        println!("🎯 Target bitrate: {} Mbps", target_bitrate / 1_000_000);
+
+        // Create encoder with target resolution and optimized bitrate
+        let mut encoder = match NativeVideoEncoder::new(
+            VideoCodec::H264,
+            encoder_resolution,
+            30, // Max FPS, will drop frames if needed
+            target_bitrate,
+        ) {
+            Ok(enc) => enc,
+            Err(e) => {
+                eprintln!("❌ Failed to create encoder: {}", e);
+                return;
+            }
+        };
+
+        println!("✅ Video encoder created ({}×{} @ {} Mbps)",
+                 target_width, target_height, target_bitrate / 1_000_000);
+
+        let need_scaling = target_width != actual_width || target_height != actual_height;
+
+        // Frame skipping for bandwidth optimization
+        let mut frame_count = 0u64;
+        let mut last_encoded_frame: Option<Arc<[u8]>> = None;
+        let frame_skip_threshold = 0.01; // 1% change threshold
+
+        loop {
+            tokio::select! {
+                // Check for shutdown signal
+                _ = shutdown_rx.recv() => {
+                    println!("🛑 Video loop shutting down");
+                    break;
+                }
+
+                // Process captured frames
+                Some(mut frame) = async_rx.recv() => {
+                    frame_count += 1;
+
+                    // Scale frame if needed
+                    #[cfg(target_os = "macos")]
+                    if need_scaling {
+                        let (scaled_data, scaled_stride) = scaling::scale_frame(
+                            &frame.data,
+                            frame.width,
+                            frame.height,
+                            frame.stride,
+                            target_width,
+                            target_height,
+                            frame.pixel_format,
+                        );
+
+                        // Update frame with scaled data
+                        frame.data = scaled_data;
+                        frame.width = target_width;
+                        frame.height = target_height;
+                        frame.stride = scaled_stride;
+                    }
+
+                    // Frame skipping: check if frame changed significantly
+                    let should_encode = if let Some(ref last_frame) = last_encoded_frame {
+                        // Simple pixel difference check (sample 1% of pixels)
+                        let sample_size = (frame.data.len() / 100).max(1000);
+                        let mut diff_count = 0;
+
+                        for i in (0..sample_size).step_by(4) {
+                            let idx = (i * 100).min(frame.data.len().saturating_sub(4));
+                            if idx + 3 < frame.data.len() && idx + 3 < last_frame.len() {
+                                let diff = (frame.data[idx] as i32 - last_frame[idx] as i32).abs()
+                                    + (frame.data[idx + 1] as i32 - last_frame[idx + 1] as i32).abs()
+                                    + (frame.data[idx + 2] as i32 - last_frame[idx + 2] as i32).abs();
+                                if diff > 30 { // Threshold per pixel
+                                    diff_count += 1;
+                                }
+                            }
+                        }
+
+                        let change_ratio = diff_count as f32 / sample_size as f32;
+                        change_ratio > frame_skip_threshold
+                    } else {
+                        true // Always encode first frame
+                    };
+
+                    // Skip frame if no significant change
+                    if !should_encode {
+                        if frame_count % 90 == 0 { // Log every 3 seconds
+                            println!("⏭️  Skipping static frames (saving bandwidth)");
+                        }
+                        continue;
+                    }
+
+                    // Encode frame
+                    let encoded = match encoder.encode_captured_frame(&frame) {
+                        Ok(data) => data,
+                        Err(e) => {
+                            eprintln!("❌ Encode failed: {}", e);
+                            continue;
+                        }
+                    };
+
+                    // Store frame for next comparison
+                    last_encoded_frame = Some(Arc::clone(&frame.data));
+
+                    // Decode and dispatch (local loopback)
+                    let engine_ref = unsafe { &*(engine_ptr as *const EngineHandle) };
+                    if let Err(e) = video_handler.handle_encoded_frame(
+                        engine_ref,
+                        &encoded,
+                        session_id,
+                    ) {
+                        eprintln!("❌ Video handler failed: {}", e);
+                    }
+                }
+            }
+        }
+
+        // Cleanup
+        if let Err(e) = encoder.shutdown() {
+            eprintln!("⚠️ Encoder shutdown error: {}", e);
+        }
+        println!("✅ Video loop terminated");
+    });
+
+    dispatch_event(engine, EVENT_FRAME_READY, r#"{"status":"started"}"#);
+    RDCS_OK
 }
 
 /// Stop the active screen capture session.
@@ -271,6 +489,11 @@ pub extern "C" fn rdcs_stop_capture(handle: *mut EngineHandle) -> c_int {
     };
     if engine.shutdown.load(Ordering::SeqCst) {
         return RDCS_ERR_NOT_INITIALIZED;
+    }
+
+    // Signal the video loop to stop
+    if let Some(tx) = engine.shutdown_tx.lock().unwrap().take() {
+        let _ = tx.try_send(()); // Best effort
     }
 
     // Wire to platform ScreenCapture: stop the active capture session.
@@ -489,15 +712,34 @@ pub extern "C" fn rdcs_set_quality(
 pub extern "C" fn rdcs_generate_invite(handle: *mut EngineHandle) -> *mut c_char {
     let engine = unsafe { handle.as_ref() };
     let Some(engine) = engine else {
+        eprintln!("❌ rdcs_generate_invite: null handle");
         return ptr::null_mut();
     };
     if engine.shutdown.load(Ordering::SeqCst) {
+        eprintln!("❌ rdcs_generate_invite: engine is shutdown");
         return ptr::null_mut();
     }
 
-    // TODO: Wire to invite code service (generates 4-digit code, stores in signaling)
-    let code = "0000"; // Placeholder
-    string_to_cstring(code)
+    // Generate a simple 4-digit invite code using timestamp + counter
+    // to avoid thread_rng() issues in non-standard threads (Dart isolates)
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    static COUNTER: AtomicU64 = AtomicU64::new(0);
+    let counter = COUNTER.fetch_add(1, Ordering::Relaxed);
+    let timestamp = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis() as u64;
+
+    // Mix timestamp and counter to generate a 4-digit code
+    let code = format!("{:04}", (timestamp + counter) % 10000);
+
+    println!("✅ Generated invite code: {}", code);
+
+    // TODO: Long-term - register invite code with signaling server
+    // POST /api/invite/generate -> store code with expiration time
+
+    string_to_cstring(&code)
 }
 
 /// Register a callback for a specific event type.

@@ -161,6 +161,13 @@ func GenerateRSAKeyPair() (privateKey string, publicKey string, err error) {
 
 // parsePrivateKey decodes a PEM-encoded RSA private key.
 func parsePrivateKey(pemStr string) (*rsa.PrivateKey, error) {
+	// Debug: log first 100 chars to check for literal \n
+	if len(pemStr) > 100 {
+		fmt.Printf("DEBUG parsePrivateKey: first 100 chars: %q\n", pemStr[:100])
+	} else {
+		fmt.Printf("DEBUG parsePrivateKey: full key: %q\n", pemStr)
+	}
+
 	block, _ := pem.Decode([]byte(pemStr))
 	if block == nil {
 		return nil, fmt.Errorf("failed to decode PEM block")

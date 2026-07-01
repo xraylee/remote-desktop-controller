@@ -21,8 +21,11 @@ services:
       - "${SIGNALING_PORT:-8443}:8443"
     environment:
       RUST_LOG: ${RUST_LOG:-info}
-      REDIS_URL: redis://redis:6379
-      SIGNALING_PORT: "8443"
+      RDCS_BIND_ADDR: "0.0.0.0:8443"
+      RDCS_REDIS_URL: redis://redis:6379
+      RDCS_HMAC_SECRET: ${RELAY_HMAC_SECRET:?RELAY_HMAC_SECRET is required}
+      RDCS_RELAY_NODES: '[{"addr":"relay","port":3478,"region":"local","max_sessions":48}]'
+      RDCS_LOG_LEVEL: ${RUST_LOG:-info}
     depends_on:
       redis:
         condition: service_healthy
@@ -49,6 +52,8 @@ services:
     ports:
       - "${RELAY_STUN_PORT:-3478}:3478/udp"
       - "49152-49200:49152-49200/udp"
+      - "${RELAY_HEALTH_PORT:-9091}:9091"
+      - "${RELAY_METRICS_PORT:-9090}:9090"
     environment:
       RUST_LOG: ${RUST_LOG:-info}
       RELAY_SLOTS: "48"
@@ -76,16 +81,12 @@ services:
       - "${API_PORT:-8080}:8080"
     environment:
       LOG_LEVEL: ${LOG_LEVEL:-info}
-      DB_HOST: postgres
-      DB_PORT: "5432"
-      DB_USER: rdcs
-      DB_PASSWORD: ${POSTGRES_PASSWORD:-rdcs_dev}
-      DB_NAME: rdcs
-      REDIS_HOST: redis
-      REDIS_PORT: "6379"
-      MINIO_ENDPOINT: minio:9000
-      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
-      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin_dev}
+      DATABASE_URL: postgres://rdcs:${POSTGRES_PASSWORD:-rdcs_dev}@postgres:5432/rdcs?sslmode=disable
+      REDIS_URL: redis://redis:6379
+      JWT_PRIVATE_KEY: ${JWT_PRIVATE_KEY:-}
+      JWT_PUBLIC_KEY: ${JWT_PUBLIC_KEY:-}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000}
+      TOTP_ISSUER: ${TOTP_ISSUER:-RDCS}
     depends_on:
       postgres:
         condition: service_healthy
@@ -117,11 +118,11 @@ services:
     networks:
       - rdcs-net
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/"]
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:3000/"]
       interval: 15s
       timeout: 5s
       retries: 3
-      start_period: 5s
+      start_period: 30s
 
   # ===========================================
   # PostgreSQL - Primary database

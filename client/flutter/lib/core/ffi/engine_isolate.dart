@@ -66,6 +66,9 @@ void _nativeEventCallback(int eventId, Pointer<Utf8> payload, int payloadLen) {
 class EngineIsolate {
   EngineIsolate._();
 
+  /// Factory constructor to create a new instance.
+  factory EngineIsolate() => EngineIsolate._();
+
   Isolate? _isolate;
   SendPort? _commandPort;
   final _eventController = StreamController<EngineEvent>.broadcast();
@@ -86,6 +89,11 @@ class EngineIsolate {
 
   /// Initialise the background isolate and FFI bindings.
   Future<void> init() async {
+    // Load library in main isolate first to cache the path
+    final tempBindings = RdcsBindings();
+    final libraryPath = RdcsBindings.cachedLibraryPath;
+    print('📦 Cached library path for isolate: $libraryPath');
+
     final readyPort = ReceivePort();
     final eventPort = ReceivePort();
 
@@ -94,7 +102,7 @@ class EngineIsolate {
 
     _isolate = await Isolate.spawn(
       _isolateEntry,
-      _IsolateInit(readyPort.sendPort, eventPort.sendPort),
+      _IsolateInit(readyPort.sendPort, eventPort.sendPort, libraryPath),
     );
 
     // Listen for events pushed from the engine isolate.
@@ -277,7 +285,7 @@ class EngineIsolate {
   /// it invokes the corresponding Rust function and sends the result
   /// back on the command's reply port.
   static void _isolateEntry(_IsolateInit init) {
-    final bindings = RdcsBindings();
+    final bindings = RdcsBindings(libraryPath: init.libraryPath);
     final commandPort = ReceivePort();
 
     // Send our command port back to the main isolate.
@@ -386,12 +394,31 @@ class EngineIsolate {
 
           case _CommandType.generateInvite:
             _requireHandle(engineHandle);
+            print('🔍 Calling generateInvite with handle: $engineHandle');
             final codePtr = bindings.generateInvite(engineHandle!);
+            print('🔍 generateInvite returned pointer: $codePtr');
             if (codePtr == nullptr) {
+              print('❌ Pointer is null!');
               throw EngineException(-1, 'Failed to generate invite code');
             }
-            stringResult = codePtr.toDartString();
-            bindings.rdcsFreeString(codePtr);
+
+            // Manual conversion to avoid isolate issues
+            try {
+              final utf8Ptr = codePtr.cast<Utf8>();
+              final units = <int>[];
+              var i = 0;
+              while (true) {
+                final byte = utf8Ptr.cast<Uint8>().elementAt(i).value;
+                if (byte == 0) break;
+                units.add(byte);
+                i++;
+                if (i > 1000) break; // Safety limit
+              }
+              stringResult = String.fromCharCodes(units);
+              print('✅ Invite code: $stringResult');
+            } finally {
+              bindings.rdcsFreeString(codePtr);
+            }
         }
       } on EngineException catch (e) {
         result = e.code;
@@ -437,9 +464,10 @@ class EngineException implements Exception {
 
 /// Initialisation message sent to the engine isolate.
 class _IsolateInit {
-  _IsolateInit(this.commandPort, this.eventPort);
+  _IsolateInit(this.commandPort, this.eventPort, this.libraryPath);
   final SendPort commandPort;
   final SendPort eventPort;
+  final String? libraryPath;
 }
 
 // ── Riverpod provider ──────────────────────────────────────────

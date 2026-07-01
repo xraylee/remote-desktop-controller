@@ -30,9 +30,14 @@ pub mod openh264_encoder;
 #[cfg(feature = "software-encoder")]
 pub mod openh264_decoder;
 
+// Re-export decoder for FFI layer
+#[cfg(feature = "software-encoder")]
+pub use openh264_decoder::OpenH264Decoder;
+
 use crate::error::CodecError;
 use crate::types::{Frame, VideoCodec, VideoResolution};
 use rdcs_platform::{CapturedFrame, PixelFormat};
+use std::sync::Arc;
 
 /// Platform-specific encoder trait.
 pub trait PlatformEncoder: Send + Sync {
@@ -368,7 +373,7 @@ fn yuv420_to_captured_frame(frame: &Frame) -> Result<CapturedFrame, CodecError> 
     }
 
     Ok(CapturedFrame {
-        data: bgra_data,
+        data: Arc::from(bgra_data.into_boxed_slice()),
         width,
         height,
         pixel_format: PixelFormat::Bgra,

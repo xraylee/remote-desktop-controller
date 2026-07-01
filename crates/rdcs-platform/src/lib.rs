@@ -10,7 +10,7 @@
 //! the trait interface fully synchronous and object-safe.
 
 use serde::{Deserialize, Serialize};
-use std::sync::mpsc;
+use std::sync::{mpsc, Arc};
 
 pub mod mock;
 
@@ -78,8 +78,8 @@ pub struct DisplayInfo {
 /// A single captured video frame.
 #[derive(Debug, Clone)]
 pub struct CapturedFrame {
-    /// Raw pixel data.
-    pub data: Vec<u8>,
+    /// Raw pixel data (shared via Arc to avoid copying).
+    pub data: Arc<[u8]>,
     /// Width in pixels.
     pub width: u32,
     /// Height in pixels.

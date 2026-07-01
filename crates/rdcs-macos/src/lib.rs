@@ -35,6 +35,7 @@ pub mod capture;
 pub mod clipboard;
 pub mod input;
 pub mod permissions;
+pub mod scaling;
 
 // Re-export concrete types for direct use.
 pub use capture::MacOsScreenCapture;

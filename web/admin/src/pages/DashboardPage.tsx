@@ -62,10 +62,10 @@ export default function DashboardPage() {
   })
 
   const statCards = [
-    { label: '在线设备', value: stats?.online_devices ?? 0, color: 'text-amber-600' },
-    { label: '活跃会话', value: stats?.active_sessions ?? 0, color: 'text-green-600' },
-    { label: '成员总数', value: stats?.total_members ?? 0, color: 'text-blue-600' },
-    { label: '今日连接', value: stats?.today_connections ?? 0, color: 'text-purple-600' },
+    { label: 'Online Devices', value: stats?.online_devices ?? 0, color: 'text-amber-600' },
+    { label: 'Active Sessions', value: stats?.active_sessions ?? 0, color: 'text-green-600' },
+    { label: 'Total Members', value: stats?.total_members ?? 0, color: 'text-blue-600' },
+    { label: 'Today Connections', value: stats?.today_connections ?? 0, color: 'text-purple-600' },
   ]
 
   const getActivityIcon = (type: string) => {
@@ -84,13 +84,13 @@ export default function DashboardPage() {
   const getActivityText = (activity: RecentActivity) => {
     switch (activity.type) {
       case 'connection':
-        return `${activity.user_name || '用户'} 连接到 ${activity.device_name}`
+        return `${activity.user_name || 'User'} connected to ${activity.device_name}`
       case 'disconnection':
-        return `${activity.device_name} 断开连接`
+        return `${activity.device_name} disconnected`
       case 'device_register':
-        return `新设备注册: ${activity.device_name}`
+        return `New device registered: ${activity.device_name}`
       default:
-        return '未知活动'
+        return 'Unknown activity'
     }
   }
 
@@ -99,10 +99,10 @@ export default function DashboardPage() {
     const now = new Date()
     const diff = Math.floor((now.getTime() - date.getTime()) / 1000)
 
-    if (diff < 60) return `${diff}秒前`
-    if (diff < 3600) return `${Math.floor(diff / 60)}分钟前`
-    if (diff < 86400) return `${Math.floor(diff / 3600)}小时前`
-    return date.toLocaleDateString('zh-CN')
+    if (diff < 60) return `${diff}s ago`
+    if (diff < 3600) return `${Math.floor(diff / 60)}m ago`
+    if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`
+    return date.toLocaleDateString('en-US')
   }
 
   const maxTrendValue = trends ? Math.max(...trends.map(t => t.count)) : 0
@@ -113,7 +113,7 @@ export default function DashboardPage() {
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
           <p className="mt-1 text-sm text-gray-500">
-            {currentTime.toLocaleString('zh-CN', {
+            {currentTime.toLocaleString('en-US', {
               year: 'numeric',
               month: 'long',
               day: 'numeric',
@@ -124,7 +124,7 @@ export default function DashboardPage() {
           </p>
         </div>
         <div className="rounded-lg bg-amber-50 px-3 py-1.5 text-sm text-amber-700 border border-amber-200">
-          实时监控中
+          Live Monitoring
         </div>
       </div>
 
@@ -145,7 +145,7 @@ export default function DashboardPage() {
 
       {/* Connection trend chart */}
       <div className="mt-6 rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-        <h2 className="text-lg font-semibold text-gray-900">连接趋势（近7天）</h2>
+        <h2 className="text-lg font-semibold text-gray-900">Connection Trends (Last 7 Days)</h2>
         <div className="mt-4 h-48 flex items-end gap-2">
           {trends && trends.length > 0 ? (
             trends.map((trend, idx) => {
@@ -155,17 +155,17 @@ export default function DashboardPage() {
                   <div
                     className="w-full bg-amber-500 rounded-t hover:bg-amber-600 transition-colors"
                     style={{ height: `${Math.max(height, 2)}%` }}
-                    title={`${trend.count} 次连接`}
+                    title={`${trend.count} connections`}
                   />
                   <p className="mt-2 text-xs text-gray-500 rotate-0">
-                    {new Date(trend.date).toLocaleDateString('zh-CN', { month: 'numeric', day: 'numeric' })}
+                    {new Date(trend.date).toLocaleDateString('en-US', { month: 'numeric', day: 'numeric' })}
                   </p>
                 </div>
               )
             })
           ) : (
             <div className="w-full h-full flex items-center justify-center text-gray-400 text-sm">
-              暂无数据
+              No data available
             </div>
           )}
         </div>
@@ -174,7 +174,7 @@ export default function DashboardPage() {
       {/* Recent activities */}
       <div className="mt-6 rounded-xl border border-gray-200 bg-white shadow-sm">
         <div className="border-b border-gray-200 px-6 py-4">
-          <h2 className="text-lg font-semibold text-gray-900">近期活动</h2>
+          <h2 className="text-lg font-semibold text-gray-900">Recent Activities</h2>
         </div>
         <div className="divide-y divide-gray-100">
           {activities && activities.length > 0 ? (
@@ -185,7 +185,7 @@ export default function DashboardPage() {
                   <div className="flex-1 min-w-0">
                     <p className="text-sm text-gray-900">{getActivityText(activity)}</p>
                     <p className="text-xs text-gray-500 mt-0.5">
-                      设备码: {activity.device_code}
+                      Device Code: {activity.device_code}
                     </p>
                   </div>
                   <span className="text-xs text-gray-400 whitespace-nowrap">
@@ -196,7 +196,7 @@ export default function DashboardPage() {
             ))
           ) : (
             <div className="px-6 py-12 text-center text-sm text-gray-400">
-              暂无活动记录
+              No activity records
             </div>
           )}
         </div>

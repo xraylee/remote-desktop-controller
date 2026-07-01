@@ -124,3 +124,16 @@ coverage/
 *.raw
 *.yuv
 *.h264
+
+# Temporary Go test files in root (should be in scripts/tools/)
+gen_*.go
+test_*.go
+
+# Temporary shell scripts (should be categorized in scripts/)
+check_*.sh
+start_*.sh
+stop_*.sh
+test_*.sh
+fix_*.sh
+rebuild_*.sh
+diagnose_*.sh
