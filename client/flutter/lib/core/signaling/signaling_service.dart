@@ -45,16 +45,20 @@ class SignalingService implements SessionSignaling {
   Stream<SignalingMessage> get messages => _client.messages;
 
   /// Session invitations (connect_request from other devices).
-  final _invitationsController = StreamController<ConnectRequestMessage>.broadcast();
-  Stream<ConnectRequestMessage> get invitations => _invitationsController.stream;
+  final _invitationsController =
+      StreamController<ConnectRequestMessage>.broadcast();
+  Stream<ConnectRequestMessage> get invitations =>
+      _invitationsController.stream;
 
   /// Generated invite codes.
   final _inviteGeneratedController = StreamController<String>.broadcast();
   Stream<String> get inviteGenerated => _inviteGeneratedController.stream;
 
   /// Relay server assignments.
-  final _relayAssignedController = StreamController<RelayAssignedMessage>.broadcast();
-  Stream<RelayAssignedMessage> get relayAssigned => _relayAssignedController.stream;
+  final _relayAssignedController =
+      StreamController<RelayAssignedMessage>.broadcast();
+  Stream<RelayAssignedMessage> get relayAssigned =>
+      _relayAssignedController.stream;
 
   /// Error messages from the server.
   final _errorsController = StreamController<ErrorMessage>.broadcast();
@@ -67,6 +71,9 @@ class SignalingService implements SessionSignaling {
   /// Connect to the signaling server and register this device.
   Future<void> connect() async {
     await _client.connect();
+    if (_client.currentState != WsConnectionState.connected) {
+      throw StateError('WebSocket is not connected');
+    }
 
     // Listen for incoming messages and route them
     _messageSubscription = _client.messages.listen(_handleMessage);
@@ -102,6 +109,11 @@ class SignalingService implements SessionSignaling {
 
   /// Request a connection to another device.
   void requestConnection(String targetCode, {String? inviteCode}) {
+    if (_client.currentState != WsConnectionState.connected) {
+      throw StateError(
+          'Cannot send connect_request: WebSocket is not connected');
+    }
+
     _client.send(SignalingMessage.connectRequest(
       fromCode: deviceCode,
       toCode: targetCode,
@@ -123,7 +135,8 @@ class SignalingService implements SessionSignaling {
       fromCode: fromCode,
     ));
 
-    print('${accepted ? "✅" : "❌"} Connection ${accepted ? "accepted" : "rejected"}: $sessionId');
+    print(
+        '${accepted ? "✅" : "❌"} Connection ${accepted ? "accepted" : "rejected"}: $sessionId');
   }
 
   /// Send ICE offer to the peer.
@@ -222,9 +235,8 @@ class SignalingService implements SessionSignaling {
       },
       peerOffline: (deviceCode, reason) {
         // Remove device from nearby list
-        final updated = currentNearbyDevices
-            .where((d) => d.code != deviceCode)
-            .toList();
+        final updated =
+            currentNearbyDevices.where((d) => d.code != deviceCode).toList();
         _nearbyDevicesController.add(updated);
         print('📴 Device offline: $deviceCode ($reason)');
       },

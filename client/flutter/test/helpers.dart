@@ -151,6 +151,8 @@ class FakeSessionSignaling implements SessionSignaling {
   FakeSessionSignaling({
     this.deviceCode = '123456789',
     this.currentConnectionState = WsConnectionState.connected,
+    this.failConnectAttempts = 0,
+    this.failRequestAttempts = 0,
   });
 
   @override
@@ -160,17 +162,30 @@ class FakeSessionSignaling implements SessionSignaling {
   WsConnectionState currentConnectionState;
 
   bool connectCalled = false;
+  int connectAttempts = 0;
+  int failConnectAttempts;
+  int requestAttempts = 0;
+  int failRequestAttempts;
   String? lastRequestTargetCode;
   String? lastInviteCode;
 
   @override
   Future<void> connect() async {
     connectCalled = true;
+    connectAttempts++;
+    if (connectAttempts <= failConnectAttempts) {
+      currentConnectionState = WsConnectionState.error;
+      throw StateError('signaling connect failed');
+    }
     currentConnectionState = WsConnectionState.connected;
   }
 
   @override
   void requestConnection(String targetCode, {String? inviteCode}) {
+    requestAttempts++;
+    if (requestAttempts <= failRequestAttempts) {
+      throw StateError('connect_request send failed');
+    }
     lastRequestTargetCode = targetCode;
     lastInviteCode = inviteCode;
   }
@@ -214,7 +229,8 @@ Future<ProviderContainer> pumpTestApp(
     configRepositoryProvider.overrideWithValue(fakeRepo),
     engineProvider.overrideWithValue(engine),
     sessionProvider.overrideWith((ref) {
-      final notifier = TestSessionNotifier(ref.watch(engineProvider), signaling);
+      final notifier =
+          TestSessionNotifier(ref.watch(engineProvider), signaling);
       if (initialSession != null) {
         notifier.setSessionState(initialSession);
       }

@@ -83,8 +83,7 @@ void main() {
       expect(engine.lastConnectCode, '123456789');
     });
 
-    testWidgets('输入有效9位代码并连接，调用 sessionProvider.connect()',
-        (tester) async {
+    testWidgets('输入有效9位代码并连接，调用 sessionProvider.connect()', (tester) async {
       final signaling = FakeSessionSignaling();
       final container = await pumpTestApp(
         tester,
@@ -113,8 +112,7 @@ void main() {
       expect(session!.state, SessionState.connected);
     });
 
-    testWidgets('Signaling 离线时连接前会先重连再发送 connect_request',
-        (tester) async {
+    testWidgets('Signaling 离线时连接前会先重连再发送 connect_request', (tester) async {
       final signaling = FakeSessionSignaling(
         currentConnectionState: WsConnectionState.disconnected,
       );
@@ -131,6 +129,49 @@ void main() {
 
       expect(signaling.connectCalled, isTrue);
       expect(signaling.lastRequestTargetCode, '761335217');
+    });
+
+    testWidgets('signaling 重连失败时会重试后再发送 connect_request', (tester) async {
+      final signaling = FakeSessionSignaling(
+        currentConnectionState: WsConnectionState.disconnected,
+        failConnectAttempts: 2,
+      );
+      final container = await pumpTestApp(
+        tester,
+        initialLocation: '/connect',
+        fakeSignaling: signaling,
+      );
+      await tester.pumpAndSettle();
+
+      await tester.enterText(find.byType(TextFormField), '761335217');
+      await tester.tap(find.text('连接'));
+      await tester.pump(const Duration(seconds: 1));
+
+      expect(signaling.connectAttempts, 3);
+      expect(signaling.lastRequestTargetCode, '761335217');
+
+      final engine = container.read(engineProvider) as FakeEngineIsolate;
+      expect(engine.lastConnectCode, '761335217');
+    });
+
+    testWidgets('connect_request 发送失败时会重试后再调用 engine.connect', (tester) async {
+      final signaling = FakeSessionSignaling(failRequestAttempts: 2);
+      final container = await pumpTestApp(
+        tester,
+        initialLocation: '/connect',
+        fakeSignaling: signaling,
+      );
+      await tester.pumpAndSettle();
+
+      await tester.enterText(find.byType(TextFormField), '761335217');
+      await tester.tap(find.text('连接'));
+      await tester.pump(const Duration(seconds: 2));
+
+      expect(signaling.requestAttempts, 3);
+      expect(signaling.lastRequestTargetCode, '761335217');
+
+      final engine = container.read(engineProvider) as FakeEngineIsolate;
+      expect(engine.lastConnectCode, '761335217');
     });
 
     testWidgets('连接成功后 session 状态为 connected', (tester) async {
@@ -192,7 +233,8 @@ void main() {
       await tester.pumpAndSettle();
 
       // Before connecting, the text field should be enabled.
-      final textField = tester.widget<TextFormField>(find.byType(TextFormField));
+      final textField =
+          tester.widget<TextFormField>(find.byType(TextFormField));
       expect(textField.enabled, isNot(false));
 
       // The connect button should be enabled.

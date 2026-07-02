@@ -41,6 +41,7 @@ class SessionInfo with _$SessionInfo {
     required SessionState state,
     @Default(0) int latencyMs,
     @Default(0.0) double fps,
+
     /// 0 = auto, 1 = clarity priority, 2 = fluidity priority.
     @Default(0) int qualityMode,
   }) = _SessionInfo;
@@ -60,6 +61,7 @@ class SessionNotifier extends StateNotifier<SessionInfo?> {
   final EngineIsolate _engine;
   final SessionSignaling _signaling;
   StreamSubscription<EngineEvent>? _subscription;
+  static const int _maxSignalingRequestAttempts = 3;
 
   /// Initiates a connection to a remote device by its 9-digit code.
   ///
@@ -81,10 +83,29 @@ class SessionNotifier extends StateNotifier<SessionInfo?> {
     _subscribeToEvents();
 
     try {
-      if (_signaling.currentConnectionState != WsConnectionState.connected) {
-        await _signaling.connect();
+      var requestError;
+      for (var attempt = 1;
+          attempt <= _maxSignalingRequestAttempts;
+          attempt++) {
+        try {
+          if (_signaling.currentConnectionState !=
+              WsConnectionState.connected) {
+            await _signaling.connect();
+          }
+          _signaling.requestConnection(code);
+          requestError = null;
+          break;
+        } catch (e) {
+          requestError = e;
+          if (attempt < _maxSignalingRequestAttempts) {
+            await Future.delayed(Duration(milliseconds: 150 * attempt));
+          }
+        }
       }
-      _signaling.requestConnection(code);
+
+      if (requestError != null) {
+        throw requestError;
+      }
 
       final sessionId = await _engine.connect(code);
       if (sessionId > 0) {
@@ -256,9 +277,7 @@ class NearbyDevicesNotifier extends StateNotifier<List<NearbyDevice>> {
 
       case EngineEventId.nearbyDeviceLost:
         final payload = NearbyDevicePayload.fromJson(event.payload);
-        state = state
-            .where((d) => d.deviceCode != payload.deviceCode)
-            .toList();
+        state = state.where((d) => d.deviceCode != payload.deviceCode).toList();
 
       default:
         break;

@@ -9,8 +9,8 @@ part of 'app_config.dart';
 _$AppConfigImpl _$$AppConfigImplFromJson(Map<String, dynamic> json) =>
     _$AppConfigImpl(
       signalingServerUrl:
-          json['signalingServerUrl'] as String? ?? 'ws://localhost:8080',
-      apiServerUrl: json['apiServerUrl'] as String? ?? 'http://localhost:3000',
+          json['signalingServerUrl'] as String? ?? 'wss://localhost:8443',
+      apiServerUrl: json['apiServerUrl'] as String? ?? 'http://localhost:8080',
       autoConnect: json['autoConnect'] as bool? ?? false,
       showNotifications: json['showNotifications'] as bool? ?? true,
       theme: json['theme'] as String? ?? 'system',

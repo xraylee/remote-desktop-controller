@@ -414,31 +414,31 @@ SignalingMessage _$SignalingMessageFromJson(Map<String, dynamic> json) {
       return RegisterMessage.fromJson(json);
     case 'heartbeat':
       return HeartbeatMessage.fromJson(json);
-    case 'connectRequest':
+    case 'connect_request':
       return ConnectRequestMessage.fromJson(json);
-    case 'connectResponse':
+    case 'connect_response':
       return ConnectResponseMessage.fromJson(json);
-    case 'iceOffer':
+    case 'ice_offer':
       return IceOfferMessage.fromJson(json);
-    case 'iceAnswer':
+    case 'ice_answer':
       return IceAnswerMessage.fromJson(json);
-    case 'iceTrickle':
+    case 'ice_trickle':
       return IceTrickleMessage.fromJson(json);
-    case 'relayRequest':
+    case 'relay_request':
       return RelayRequestMessage.fromJson(json);
-    case 'generateInvite':
+    case 'generate_invite':
       return GenerateInviteMessage.fromJson(json);
-    case 'useInvite':
+    case 'use_invite':
       return UseInviteMessage.fromJson(json);
-    case 'nearbyUpdate':
+    case 'nearby_update':
       return NearbyUpdateMessage.fromJson(json);
-    case 'peerOffline':
+    case 'peer_offline':
       return PeerOfflineMessage.fromJson(json);
-    case 'relayAssigned':
+    case 'relay_assigned':
       return RelayAssignedMessage.fromJson(json);
-    case 'inviteGenerated':
+    case 'invite_generated':
       return InviteGeneratedMessage.fromJson(json);
-    case 'inviteResult':
+    case 'invite_result':
       return InviteResultMessage.fromJson(json);
     case 'error':
       return ErrorMessage.fromJson(json);
@@ -1522,7 +1522,7 @@ class _$ConnectRequestMessageImpl implements ConnectRequestMessage {
       @JsonKey(name: 'to_code') required this.toCode,
       @JsonKey(name: 'invite_code') this.inviteCode,
       final String? $type})
-      : $type = $type ?? 'connectRequest';
+      : $type = $type ?? 'connect_request';
 
   factory _$ConnectRequestMessageImpl.fromJson(Map<String, dynamic> json) =>
       _$$ConnectRequestMessageImplFromJson(json);
@@ -1910,7 +1910,7 @@ class _$ConnectResponseMessageImpl implements ConnectResponseMessage {
       @JsonKey(name: 'session_id') required this.sessionId,
       @JsonKey(name: 'from_code') required this.fromCode,
       final String? $type})
-      : $type = $type ?? 'connectResponse';
+      : $type = $type ?? 'connect_response';
 
   factory _$ConnectResponseMessageImpl.fromJson(Map<String, dynamic> json) =>
       _$$ConnectResponseMessageImplFromJson(json);
@@ -2296,7 +2296,7 @@ class _$IceOfferMessageImpl implements IceOfferMessage {
       required final List<IceCandidate> candidates,
       final String? $type})
       : _candidates = candidates,
-        $type = $type ?? 'iceOffer';
+        $type = $type ?? 'ice_offer';
 
   factory _$IceOfferMessageImpl.fromJson(Map<String, dynamic> json) =>
       _$$IceOfferMessageImplFromJson(json);
@@ -2684,7 +2684,7 @@ class _$IceAnswerMessageImpl implements IceAnswerMessage {
       required final List<IceCandidate> candidates,
       final String? $type})
       : _candidates = candidates,
-        $type = $type ?? 'iceAnswer';
+        $type = $type ?? 'ice_answer';
 
   factory _$IceAnswerMessageImpl.fromJson(Map<String, dynamic> json) =>
       _$$IceAnswerMessageImplFromJson(json);
@@ -3075,7 +3075,7 @@ class _$IceTrickleMessageImpl implements IceTrickleMessage {
       {@JsonKey(name: 'session_id') required this.sessionId,
       required this.candidate,
       final String? $type})
-      : $type = $type ?? 'iceTrickle';
+      : $type = $type ?? 'ice_trickle';
 
   factory _$IceTrickleMessageImpl.fromJson(Map<String, dynamic> json) =>
       _$$IceTrickleMessageImplFromJson(json);
@@ -3444,7 +3444,7 @@ class _$RelayRequestMessageImpl implements RelayRequestMessage {
       {@JsonKey(name: 'session_id') required this.sessionId,
       @JsonKey(name: 'preferred_region') this.preferredRegion,
       final String? $type})
-      : $type = $type ?? 'relayRequest';
+      : $type = $type ?? 'relay_request';
 
   factory _$RelayRequestMessageImpl.fromJson(Map<String, dynamic> json) =>
       _$$RelayRequestMessageImplFromJson(json);
@@ -3809,7 +3809,7 @@ class _$GenerateInviteMessageImpl implements GenerateInviteMessage {
   const _$GenerateInviteMessageImpl(
       {@JsonKey(name: 'device_code') required this.deviceCode,
       final String? $type})
-      : $type = $type ?? 'generateInvite';
+      : $type = $type ?? 'generate_invite';
 
   factory _$GenerateInviteMessageImpl.fromJson(Map<String, dynamic> json) =>
       _$$GenerateInviteMessageImplFromJson(json);
@@ -4173,7 +4173,7 @@ class _$UseInviteMessageImpl implements UseInviteMessage {
       {@JsonKey(name: 'from_code') required this.fromCode,
       @JsonKey(name: 'invite_code') required this.inviteCode,
       final String? $type})
-      : $type = $type ?? 'useInvite';
+      : $type = $type ?? 'use_invite';
 
   factory _$UseInviteMessageImpl.fromJson(Map<String, dynamic> json) =>
       _$$UseInviteMessageImplFromJson(json);
@@ -4537,7 +4537,7 @@ class _$NearbyUpdateMessageImpl implements NearbyUpdateMessage {
   const _$NearbyUpdateMessageImpl(
       {required final List<DeviceInfo> devices, final String? $type})
       : _devices = devices,
-        $type = $type ?? 'nearbyUpdate';
+        $type = $type ?? 'nearby_update';
 
   factory _$NearbyUpdateMessageImpl.fromJson(Map<String, dynamic> json) =>
       _$$NearbyUpdateMessageImplFromJson(json);
@@ -4901,7 +4901,7 @@ class _$PeerOfflineMessageImpl implements PeerOfflineMessage {
       {@JsonKey(name: 'device_code') required this.deviceCode,
       required this.reason,
       final String? $type})
-      : $type = $type ?? 'peerOffline';
+      : $type = $type ?? 'peer_offline';
 
   factory _$PeerOfflineMessageImpl.fromJson(Map<String, dynamic> json) =>
       _$$PeerOfflineMessageImplFromJson(json);
@@ -5283,7 +5283,7 @@ class _$RelayAssignedMessageImpl implements RelayAssignedMessage {
       @JsonKey(name: 'relay_port') required this.relayPort,
       required this.token,
       final String? $type})
-      : $type = $type ?? 'relayAssigned';
+      : $type = $type ?? 'relay_assigned';
 
   factory _$RelayAssignedMessageImpl.fromJson(Map<String, dynamic> json) =>
       _$$RelayAssignedMessageImplFromJson(json);
@@ -5663,7 +5663,7 @@ class _$InviteGeneratedMessageImpl implements InviteGeneratedMessage {
   const _$InviteGeneratedMessageImpl(
       {@JsonKey(name: 'invite_code') required this.inviteCode,
       final String? $type})
-      : $type = $type ?? 'inviteGenerated';
+      : $type = $type ?? 'invite_generated';
 
   factory _$InviteGeneratedMessageImpl.fromJson(Map<String, dynamic> json) =>
       _$$InviteGeneratedMessageImplFromJson(json);
@@ -6027,7 +6027,7 @@ class _$InviteResultMessageImpl implements InviteResultMessage {
       {@JsonKey(name: 'session_id') required this.sessionId,
       @JsonKey(name: 'to_code') required this.toCode,
       final String? $type})
-      : $type = $type ?? 'inviteResult';
+      : $type = $type ?? 'invite_result';
 
   factory _$InviteResultMessageImpl.fromJson(Map<String, dynamic> json) =>
       _$$InviteResultMessageImplFromJson(json);

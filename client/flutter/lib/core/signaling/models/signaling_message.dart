@@ -36,7 +36,7 @@ class DeviceInfo with _$DeviceInfo {
 /// Signaling message types exchanged between client and server.
 ///
 /// All messages are JSON-encoded with a "type" discriminator field.
-@Freezed(unionKey: 'type')
+@Freezed(unionKey: 'type', unionValueCase: FreezedUnionCase.snake)
 sealed class SignalingMessage with _$SignalingMessage {
   // ── Client → Server ──────────────────────────────────────────
 

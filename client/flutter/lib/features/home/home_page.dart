@@ -12,6 +12,8 @@ import '../../core/config/config_provider.dart';
 import '../../core/config/config_repository.dart';
 import '../../core/ffi/engine_isolate.dart';
 import '../../core/ffi/engine_providers.dart';
+import '../../core/signaling/signaling_provider.dart';
+import '../../core/signaling/websocket_client.dart';
 import '../../core/theme.dart';
 import '../session/session_providers.dart';
 
@@ -86,8 +88,8 @@ class HomePage extends ConsumerWidget {
                 padding:
                     const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
                 decoration: BoxDecoration(
-                  border: Border.all(
-                      color: theme.colorScheme.primary, width: 2),
+                  border:
+                      Border.all(color: theme.colorScheme.primary, width: 2),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Row(
@@ -102,7 +104,8 @@ class HomePage extends ConsumerWidget {
                     ),
                     if (deviceCode.isNotEmpty) ...[
                       const SizedBox(width: 12),
-                      Icon(Icons.copy, size: 18, color: theme.colorScheme.primary),
+                      Icon(Icons.copy,
+                          size: 18, color: theme.colorScheme.primary),
                     ],
                   ],
                 ),
@@ -124,7 +127,7 @@ class HomePage extends ConsumerWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 ElevatedButton.icon(
-                  onPressed: () => context.go('/connect'),
+                  onPressed: () => _showInviteCodeDialog(context, ref),
                   icon: const Icon(Icons.link),
                   label: const Text('连接远程设备'),
                 ),
@@ -242,6 +245,123 @@ class HomePage extends ConsumerWidget {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('生成邀请码失败: $e')),
         );
+      }
+    }
+  }
+
+  Future<void> _showInviteCodeDialog(
+      BuildContext context, WidgetRef ref) async {
+    final controller = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+    var isSubmitting = false;
+
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: !isSubmitting,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('输入邀请码'),
+          content: Form(
+            key: formKey,
+            child: TextFormField(
+              controller: controller,
+              autofocus: true,
+              enabled: !isSubmitting,
+              textCapitalization: TextCapitalization.characters,
+              decoration: const InputDecoration(
+                labelText: '邀请码',
+                hintText: '请输入对方分享的邀请码',
+              ),
+              validator: (value) {
+                if ((value ?? '').trim().isEmpty) {
+                  return '请输入邀请码';
+                }
+                return null;
+              },
+              onFieldSubmitted: (_) {
+                if (!isSubmitting) {
+                  _submitInviteCode(
+                    dialogContext,
+                    ref,
+                    formKey,
+                    controller.text,
+                    setDialogState,
+                    (value) => isSubmitting = value,
+                  );
+                }
+              },
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed:
+                  isSubmitting ? null : () => Navigator.of(dialogContext).pop(),
+              child: const Text('取消'),
+            ),
+            ElevatedButton(
+              onPressed: isSubmitting
+                  ? null
+                  : () => _submitInviteCode(
+                        dialogContext,
+                        ref,
+                        formKey,
+                        controller.text,
+                        setDialogState,
+                        (value) => isSubmitting = value,
+                      ),
+              child: isSubmitting
+                  ? const SizedBox(
+                      height: 18,
+                      width: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : const Text('连接'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    controller.dispose();
+  }
+
+  Future<void> _submitInviteCode(
+    BuildContext dialogContext,
+    WidgetRef ref,
+    GlobalKey<FormState> formKey,
+    String inviteCode,
+    StateSetter setDialogState,
+    ValueChanged<bool> setSubmitting,
+  ) async {
+    if (!(formKey.currentState?.validate() ?? false)) return;
+
+    setDialogState(() => setSubmitting(true));
+
+    try {
+      final service = ref.read(signalingServiceProvider);
+      if (service.currentConnectionState != WsConnectionState.connected) {
+        await service.connect();
+      }
+      service.useInviteCode(inviteCode.trim());
+
+      if (dialogContext.mounted) {
+        Navigator.of(dialogContext).pop();
+        ScaffoldMessenger.of(dialogContext).showSnackBar(
+          const SnackBar(content: Text('已发送连接请求')),
+        );
+      }
+    } catch (e) {
+      if (dialogContext.mounted) {
+        ScaffoldMessenger.of(dialogContext).showSnackBar(
+          SnackBar(content: Text('连接出错: $e')),
+        );
+      }
+    } finally {
+      if (dialogContext.mounted) {
+        setDialogState(() => setSubmitting(false));
       }
     }
   }

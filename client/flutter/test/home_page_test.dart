@@ -100,7 +100,7 @@ void main() {
       expect(find.text('点击代码可复制'), findsNothing);
     });
 
-    testWidgets('点击 "连接远程设备" 按钮导航到 /connect', (tester) async {
+    testWidgets('点击 "连接远程设备" 按钮弹出邀请码输入框', (tester) async {
       await pumpTestApp(tester);
       await tester.pumpAndSettle();
 
@@ -108,9 +108,9 @@ void main() {
       await tester.tap(find.text('连接远程设备'));
       await tester.pumpAndSettle();
 
-      // Should navigate to the connect page.
-      expect(find.text('连接远程设备'), findsWidgets); // AppBar title on connect page
-      expect(find.text('输入对方设备代码'), findsOneWidget);
+      expect(find.text('输入邀请码'), findsOneWidget);
+      expect(find.text('请输入对方分享的邀请码'), findsOneWidget);
+      expect(find.byType(TextField), findsOneWidget);
     });
 
     testWidgets('有设备代码时显示复制图标', (tester) async {

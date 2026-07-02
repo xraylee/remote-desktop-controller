@@ -211,8 +211,8 @@ class __$$AppConfigImplCopyWithImpl<$Res>
 @JsonSerializable()
 class _$AppConfigImpl implements _AppConfig {
   const _$AppConfigImpl(
-      {this.signalingServerUrl = 'ws://localhost:8080',
-      this.apiServerUrl = 'http://localhost:3000',
+      {this.signalingServerUrl = 'wss://localhost:8443',
+      this.apiServerUrl = 'http://localhost:8080',
       this.autoConnect = false,
       this.showNotifications = true,
       this.theme = 'system',
