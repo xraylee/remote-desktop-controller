@@ -8,10 +8,13 @@
 // Flow verified:
 //   1. Device A (controlled)  registers, generates an invite code.
 //   2. Device B (controller)  registers, sends `use_invite` with that code.
-//   3. Server consumes the invite and forwards a `connect_request` to A.
+//   3. Server consumes the invite and forwards a `connect_request` to A,
+//      carrying the server-minted session_id.
 //   4. Device A receives the forwarded `connect_request` on its invitations
 //      stream — proving snake_case round-trips in BOTH directions AND that
 //      the server routes messages between two real client connections.
+//   5. Device A accepts; the `connect_response` routes back to controller B
+//      on the SAME session_id — closing the signaling handshake end-to-end.
 //
 // Run:
 //   RDCS_SIGNALING_URL=ws://192.168.31.50:8443/ws \
@@ -92,10 +95,35 @@ void main() {
           reason: 'connect_request should originate from device B');
       expect(invite.toCode, deviceA.deviceCode,
           reason: 'connect_request should be addressed to device A');
+      expect(invite.sessionId, isNotNull,
+          reason: 'server-minted session_id must ride on the connect_request');
 
       // ignore: avoid_print
       print('✅ Device A received connect_request from ${invite.fromCode} '
-          '→ full invite flow verified end-to-end');
+          '(session ${invite.sessionId})');
+
+      // -- Device A accepts; the connect_response must reach controller B ----
+      // B is the initiator, so it receives the response with fromCode == A.
+      final responseFuture = deviceB.connectResponses
+          .firstWhere((r) => r.fromCode == deviceA.deviceCode)
+          .timeout(const Duration(seconds: 10));
+
+      deviceA.respondToConnection(
+        sessionId: invite.sessionId!,
+        fromCode: deviceA.deviceCode,
+        accepted: true,
+      );
+
+      final ConnectResponseMessage response = await responseFuture;
+      expect(response.accepted, isTrue,
+          reason: 'A accepted, so B must see accepted: true');
+      expect(response.sessionId, invite.sessionId,
+          reason: 'the handshake must close on the SAME server-minted '
+              'session_id in both directions');
+
+      // ignore: avoid_print
+      print('✅ Device B received connect_response (accepted, '
+          'session ${response.sessionId}) → full handshake closed end-to-end');
     });
   }, skip: serverUrl.isEmpty ? 'RDCS_SIGNALING_URL not set' : false);
 }
