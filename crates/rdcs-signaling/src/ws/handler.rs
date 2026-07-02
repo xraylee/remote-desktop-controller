@@ -225,6 +225,7 @@ async fn route_message(
         WsMessage::ConnectRequest {
             from_code,
             to_code,
+            session_id: _,
             invite_code,
         } => {
             tracing::debug!(from = %from_code, to = %to_code, "connect_request received");

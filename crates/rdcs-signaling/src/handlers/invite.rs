@@ -159,6 +159,7 @@ pub async fn handle_use_invite(
             WsMessage::ConnectRequest {
                 from_code: from_code.to_string(),
                 to_code: target_code.to_string(),
+                session_id: Some(session_id.clone()),
                 invite_code: Some(invite_code.to_string()),
             },
         )
@@ -327,6 +328,7 @@ mod tests {
             WsMessage::ConnectRequest {
                 from_code,
                 to_code,
+                session_id: _,
                 invite_code,
             } => {
                 assert_eq!(from_code, "CTRL");

@@ -100,6 +100,7 @@ pub async fn handle_connect_request(
             WsMessage::ConnectRequest {
                 from_code: from_code.to_string(),
                 to_code: to_code.to_string(),
+                session_id: Some(session_id.clone()),
                 invite_code: invite_code.map(String::from),
             },
         )
@@ -414,10 +415,15 @@ mod tests {
             WsMessage::ConnectRequest {
                 from_code,
                 to_code,
+                session_id,
                 invite_code,
             } => {
                 assert_eq!(from_code, "CTRL");
                 assert_eq!(to_code, "TARGET");
+                assert!(
+                    session_id.as_deref().is_some_and(|s| !s.is_empty()),
+                    "forwarded ConnectRequest must carry a non-empty session_id"
+                );
                 assert!(invite_code.is_none());
             }
             other => panic!("expected ConnectRequest, got: {other:?}"),
@@ -465,8 +471,9 @@ mod tests {
 
         let msg = tgt_rx.recv().await.unwrap();
         match msg {
-            WsMessage::ConnectRequest { invite_code, .. } => {
+            WsMessage::ConnectRequest { invite_code, session_id, .. } => {
                 assert_eq!(invite_code.as_deref(), Some("INV-99"));
+                assert!(session_id.is_some());
             }
             other => panic!("expected ConnectRequest, got: {other:?}"),
         }
