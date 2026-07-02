@@ -51,6 +51,13 @@ final invitationsProvider = StreamProvider<ConnectRequestMessage>((ref) {
   return service.invitations;
 });
 
+/// Provider for responses to our outgoing connection requests.
+final connectResponsesProvider =
+    StreamProvider<ConnectResponseMessage>((ref) {
+  final service = ref.watch(signalingServiceProvider);
+  return service.connectResponses;
+});
+
 /// Provider for server error messages.
 final signalingErrorsProvider = StreamProvider<ErrorMessage>((ref) {
   final service = ref.watch(signalingServiceProvider);

@@ -13,6 +13,7 @@ import 'package:rdcs_client/core/config/config_provider.dart';
 import 'package:rdcs_client/core/config/config_repository.dart';
 import 'package:rdcs_client/core/ffi/engine_events.dart';
 import 'package:rdcs_client/core/ffi/engine_isolate.dart';
+import 'package:rdcs_client/core/signaling/models/signaling_message.dart';
 import 'package:rdcs_client/core/signaling/session_signaling.dart';
 import 'package:rdcs_client/core/signaling/websocket_client.dart';
 import 'package:rdcs_client/features/connect/connect_page.dart';
@@ -168,6 +169,20 @@ class FakeSessionSignaling implements SessionSignaling {
   int failRequestAttempts;
   String? lastRequestTargetCode;
   String? lastInviteCode;
+
+  final _connectResponsesController =
+      StreamController<ConnectResponseMessage>.broadcast();
+
+  @override
+  Stream<ConnectResponseMessage> get connectResponses =>
+      _connectResponsesController.stream;
+
+  /// Test hook: push a fake connect_response to the notifier under test.
+  void emitConnectResponse(ConnectResponseMessage msg) =>
+      _connectResponsesController.add(msg);
+
+  /// Close the fake's stream controller (call in test tearDown if needed).
+  void disposeFake() => _connectResponsesController.close();
 
   @override
   Future<void> connect() async {
