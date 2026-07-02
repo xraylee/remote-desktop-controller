@@ -465,6 +465,7 @@ mixin _$SignalingMessage {
     required TResult Function(
             @JsonKey(name: 'from_code') String fromCode,
             @JsonKey(name: 'to_code') String toCode,
+            @JsonKey(name: 'session_id') String? sessionId,
             @JsonKey(name: 'invite_code') String? inviteCode)
         connectRequest,
     required TResult Function(
@@ -520,6 +521,7 @@ mixin _$SignalingMessage {
     TResult? Function(
             @JsonKey(name: 'from_code') String fromCode,
             @JsonKey(name: 'to_code') String toCode,
+            @JsonKey(name: 'session_id') String? sessionId,
             @JsonKey(name: 'invite_code') String? inviteCode)?
         connectRequest,
     TResult? Function(
@@ -575,6 +577,7 @@ mixin _$SignalingMessage {
     TResult Function(
             @JsonKey(name: 'from_code') String fromCode,
             @JsonKey(name: 'to_code') String toCode,
+            @JsonKey(name: 'session_id') String? sessionId,
             @JsonKey(name: 'invite_code') String? inviteCode)?
         connectRequest,
     TResult Function(
@@ -832,6 +835,7 @@ class _$RegisterMessageImpl implements RegisterMessage {
     required TResult Function(
             @JsonKey(name: 'from_code') String fromCode,
             @JsonKey(name: 'to_code') String toCode,
+            @JsonKey(name: 'session_id') String? sessionId,
             @JsonKey(name: 'invite_code') String? inviteCode)
         connectRequest,
     required TResult Function(
@@ -890,6 +894,7 @@ class _$RegisterMessageImpl implements RegisterMessage {
     TResult? Function(
             @JsonKey(name: 'from_code') String fromCode,
             @JsonKey(name: 'to_code') String toCode,
+            @JsonKey(name: 'session_id') String? sessionId,
             @JsonKey(name: 'invite_code') String? inviteCode)?
         connectRequest,
     TResult? Function(
@@ -948,6 +953,7 @@ class _$RegisterMessageImpl implements RegisterMessage {
     TResult Function(
             @JsonKey(name: 'from_code') String fromCode,
             @JsonKey(name: 'to_code') String toCode,
+            @JsonKey(name: 'session_id') String? sessionId,
             @JsonKey(name: 'invite_code') String? inviteCode)?
         connectRequest,
     TResult Function(
@@ -1203,6 +1209,7 @@ class _$HeartbeatMessageImpl implements HeartbeatMessage {
     required TResult Function(
             @JsonKey(name: 'from_code') String fromCode,
             @JsonKey(name: 'to_code') String toCode,
+            @JsonKey(name: 'session_id') String? sessionId,
             @JsonKey(name: 'invite_code') String? inviteCode)
         connectRequest,
     required TResult Function(
@@ -1261,6 +1268,7 @@ class _$HeartbeatMessageImpl implements HeartbeatMessage {
     TResult? Function(
             @JsonKey(name: 'from_code') String fromCode,
             @JsonKey(name: 'to_code') String toCode,
+            @JsonKey(name: 'session_id') String? sessionId,
             @JsonKey(name: 'invite_code') String? inviteCode)?
         connectRequest,
     TResult? Function(
@@ -1319,6 +1327,7 @@ class _$HeartbeatMessageImpl implements HeartbeatMessage {
     TResult Function(
             @JsonKey(name: 'from_code') String fromCode,
             @JsonKey(name: 'to_code') String toCode,
+            @JsonKey(name: 'session_id') String? sessionId,
             @JsonKey(name: 'invite_code') String? inviteCode)?
         connectRequest,
     TResult Function(
@@ -1477,6 +1486,7 @@ abstract class _$$ConnectRequestMessageImplCopyWith<$Res> {
   $Res call(
       {@JsonKey(name: 'from_code') String fromCode,
       @JsonKey(name: 'to_code') String toCode,
+      @JsonKey(name: 'session_id') String? sessionId,
       @JsonKey(name: 'invite_code') String? inviteCode});
 }
 
@@ -1495,6 +1505,7 @@ class __$$ConnectRequestMessageImplCopyWithImpl<$Res>
   $Res call({
     Object? fromCode = null,
     Object? toCode = null,
+    Object? sessionId = freezed,
     Object? inviteCode = freezed,
   }) {
     return _then(_$ConnectRequestMessageImpl(
@@ -1506,6 +1517,10 @@ class __$$ConnectRequestMessageImplCopyWithImpl<$Res>
           ? _value.toCode
           : toCode // ignore: cast_nullable_to_non_nullable
               as String,
+      sessionId: freezed == sessionId
+          ? _value.sessionId
+          : sessionId // ignore: cast_nullable_to_non_nullable
+              as String?,
       inviteCode: freezed == inviteCode
           ? _value.inviteCode
           : inviteCode // ignore: cast_nullable_to_non_nullable
@@ -1520,6 +1535,7 @@ class _$ConnectRequestMessageImpl implements ConnectRequestMessage {
   const _$ConnectRequestMessageImpl(
       {@JsonKey(name: 'from_code') required this.fromCode,
       @JsonKey(name: 'to_code') required this.toCode,
+      @JsonKey(name: 'session_id') this.sessionId,
       @JsonKey(name: 'invite_code') this.inviteCode,
       final String? $type})
       : $type = $type ?? 'connect_request';
@@ -1534,6 +1550,9 @@ class _$ConnectRequestMessageImpl implements ConnectRequestMessage {
   @JsonKey(name: 'to_code')
   final String toCode;
   @override
+  @JsonKey(name: 'session_id')
+  final String? sessionId;
+  @override
   @JsonKey(name: 'invite_code')
   final String? inviteCode;
 
@@ -1542,7 +1561,7 @@ class _$ConnectRequestMessageImpl implements ConnectRequestMessage {
 
   @override
   String toString() {
-    return 'SignalingMessage.connectRequest(fromCode: $fromCode, toCode: $toCode, inviteCode: $inviteCode)';
+    return 'SignalingMessage.connectRequest(fromCode: $fromCode, toCode: $toCode, sessionId: $sessionId, inviteCode: $inviteCode)';
   }
 
   @override
@@ -1553,13 +1572,16 @@ class _$ConnectRequestMessageImpl implements ConnectRequestMessage {
             (identical(other.fromCode, fromCode) ||
                 other.fromCode == fromCode) &&
             (identical(other.toCode, toCode) || other.toCode == toCode) &&
+            (identical(other.sessionId, sessionId) ||
+                other.sessionId == sessionId) &&
             (identical(other.inviteCode, inviteCode) ||
                 other.inviteCode == inviteCode));
   }
 
   @JsonKey(includeFromJson: false, includeToJson: false)
   @override
-  int get hashCode => Object.hash(runtimeType, fromCode, toCode, inviteCode);
+  int get hashCode =>
+      Object.hash(runtimeType, fromCode, toCode, sessionId, inviteCode);
 
   /// Create a copy of SignalingMessage
   /// with the given fields replaced by the non-null parameter values.
@@ -1585,6 +1607,7 @@ class _$ConnectRequestMessageImpl implements ConnectRequestMessage {
     required TResult Function(
             @JsonKey(name: 'from_code') String fromCode,
             @JsonKey(name: 'to_code') String toCode,
+            @JsonKey(name: 'session_id') String? sessionId,
             @JsonKey(name: 'invite_code') String? inviteCode)
         connectRequest,
     required TResult Function(
@@ -1626,7 +1649,7 @@ class _$ConnectRequestMessageImpl implements ConnectRequestMessage {
         inviteResult,
     required TResult Function(String code, String message) error,
   }) {
-    return connectRequest(fromCode, toCode, inviteCode);
+    return connectRequest(fromCode, toCode, sessionId, inviteCode);
   }
 
   @override
@@ -1643,6 +1666,7 @@ class _$ConnectRequestMessageImpl implements ConnectRequestMessage {
     TResult? Function(
             @JsonKey(name: 'from_code') String fromCode,
             @JsonKey(name: 'to_code') String toCode,
+            @JsonKey(name: 'session_id') String? sessionId,
             @JsonKey(name: 'invite_code') String? inviteCode)?
         connectRequest,
     TResult? Function(
@@ -1684,7 +1708,7 @@ class _$ConnectRequestMessageImpl implements ConnectRequestMessage {
         inviteResult,
     TResult? Function(String code, String message)? error,
   }) {
-    return connectRequest?.call(fromCode, toCode, inviteCode);
+    return connectRequest?.call(fromCode, toCode, sessionId, inviteCode);
   }
 
   @override
@@ -1701,6 +1725,7 @@ class _$ConnectRequestMessageImpl implements ConnectRequestMessage {
     TResult Function(
             @JsonKey(name: 'from_code') String fromCode,
             @JsonKey(name: 'to_code') String toCode,
+            @JsonKey(name: 'session_id') String? sessionId,
             @JsonKey(name: 'invite_code') String? inviteCode)?
         connectRequest,
     TResult Function(
@@ -1744,7 +1769,7 @@ class _$ConnectRequestMessageImpl implements ConnectRequestMessage {
     required TResult orElse(),
   }) {
     if (connectRequest != null) {
-      return connectRequest(fromCode, toCode, inviteCode);
+      return connectRequest(fromCode, toCode, sessionId, inviteCode);
     }
     return orElse();
   }
@@ -1834,6 +1859,7 @@ abstract class ConnectRequestMessage implements SignalingMessage {
   const factory ConnectRequestMessage(
           {@JsonKey(name: 'from_code') required final String fromCode,
           @JsonKey(name: 'to_code') required final String toCode,
+          @JsonKey(name: 'session_id') final String? sessionId,
           @JsonKey(name: 'invite_code') final String? inviteCode}) =
       _$ConnectRequestMessageImpl;
 
@@ -1844,6 +1870,8 @@ abstract class ConnectRequestMessage implements SignalingMessage {
   String get fromCode;
   @JsonKey(name: 'to_code')
   String get toCode;
+  @JsonKey(name: 'session_id')
+  String? get sessionId;
   @JsonKey(name: 'invite_code')
   String? get inviteCode;
 
@@ -1973,6 +2001,7 @@ class _$ConnectResponseMessageImpl implements ConnectResponseMessage {
     required TResult Function(
             @JsonKey(name: 'from_code') String fromCode,
             @JsonKey(name: 'to_code') String toCode,
+            @JsonKey(name: 'session_id') String? sessionId,
             @JsonKey(name: 'invite_code') String? inviteCode)
         connectRequest,
     required TResult Function(
@@ -2031,6 +2060,7 @@ class _$ConnectResponseMessageImpl implements ConnectResponseMessage {
     TResult? Function(
             @JsonKey(name: 'from_code') String fromCode,
             @JsonKey(name: 'to_code') String toCode,
+            @JsonKey(name: 'session_id') String? sessionId,
             @JsonKey(name: 'invite_code') String? inviteCode)?
         connectRequest,
     TResult? Function(
@@ -2089,6 +2119,7 @@ class _$ConnectResponseMessageImpl implements ConnectResponseMessage {
     TResult Function(
             @JsonKey(name: 'from_code') String fromCode,
             @JsonKey(name: 'to_code') String toCode,
+            @JsonKey(name: 'session_id') String? sessionId,
             @JsonKey(name: 'invite_code') String? inviteCode)?
         connectRequest,
     TResult Function(
@@ -2363,6 +2394,7 @@ class _$IceOfferMessageImpl implements IceOfferMessage {
     required TResult Function(
             @JsonKey(name: 'from_code') String fromCode,
             @JsonKey(name: 'to_code') String toCode,
+            @JsonKey(name: 'session_id') String? sessionId,
             @JsonKey(name: 'invite_code') String? inviteCode)
         connectRequest,
     required TResult Function(
@@ -2421,6 +2453,7 @@ class _$IceOfferMessageImpl implements IceOfferMessage {
     TResult? Function(
             @JsonKey(name: 'from_code') String fromCode,
             @JsonKey(name: 'to_code') String toCode,
+            @JsonKey(name: 'session_id') String? sessionId,
             @JsonKey(name: 'invite_code') String? inviteCode)?
         connectRequest,
     TResult? Function(
@@ -2479,6 +2512,7 @@ class _$IceOfferMessageImpl implements IceOfferMessage {
     TResult Function(
             @JsonKey(name: 'from_code') String fromCode,
             @JsonKey(name: 'to_code') String toCode,
+            @JsonKey(name: 'session_id') String? sessionId,
             @JsonKey(name: 'invite_code') String? inviteCode)?
         connectRequest,
     TResult Function(
@@ -2751,6 +2785,7 @@ class _$IceAnswerMessageImpl implements IceAnswerMessage {
     required TResult Function(
             @JsonKey(name: 'from_code') String fromCode,
             @JsonKey(name: 'to_code') String toCode,
+            @JsonKey(name: 'session_id') String? sessionId,
             @JsonKey(name: 'invite_code') String? inviteCode)
         connectRequest,
     required TResult Function(
@@ -2809,6 +2844,7 @@ class _$IceAnswerMessageImpl implements IceAnswerMessage {
     TResult? Function(
             @JsonKey(name: 'from_code') String fromCode,
             @JsonKey(name: 'to_code') String toCode,
+            @JsonKey(name: 'session_id') String? sessionId,
             @JsonKey(name: 'invite_code') String? inviteCode)?
         connectRequest,
     TResult? Function(
@@ -2867,6 +2903,7 @@ class _$IceAnswerMessageImpl implements IceAnswerMessage {
     TResult Function(
             @JsonKey(name: 'from_code') String fromCode,
             @JsonKey(name: 'to_code') String toCode,
+            @JsonKey(name: 'session_id') String? sessionId,
             @JsonKey(name: 'invite_code') String? inviteCode)?
         connectRequest,
     TResult Function(
@@ -3133,6 +3170,7 @@ class _$IceTrickleMessageImpl implements IceTrickleMessage {
     required TResult Function(
             @JsonKey(name: 'from_code') String fromCode,
             @JsonKey(name: 'to_code') String toCode,
+            @JsonKey(name: 'session_id') String? sessionId,
             @JsonKey(name: 'invite_code') String? inviteCode)
         connectRequest,
     required TResult Function(
@@ -3191,6 +3229,7 @@ class _$IceTrickleMessageImpl implements IceTrickleMessage {
     TResult? Function(
             @JsonKey(name: 'from_code') String fromCode,
             @JsonKey(name: 'to_code') String toCode,
+            @JsonKey(name: 'session_id') String? sessionId,
             @JsonKey(name: 'invite_code') String? inviteCode)?
         connectRequest,
     TResult? Function(
@@ -3249,6 +3288,7 @@ class _$IceTrickleMessageImpl implements IceTrickleMessage {
     TResult Function(
             @JsonKey(name: 'from_code') String fromCode,
             @JsonKey(name: 'to_code') String toCode,
+            @JsonKey(name: 'session_id') String? sessionId,
             @JsonKey(name: 'invite_code') String? inviteCode)?
         connectRequest,
     TResult Function(
@@ -3503,6 +3543,7 @@ class _$RelayRequestMessageImpl implements RelayRequestMessage {
     required TResult Function(
             @JsonKey(name: 'from_code') String fromCode,
             @JsonKey(name: 'to_code') String toCode,
+            @JsonKey(name: 'session_id') String? sessionId,
             @JsonKey(name: 'invite_code') String? inviteCode)
         connectRequest,
     required TResult Function(
@@ -3561,6 +3602,7 @@ class _$RelayRequestMessageImpl implements RelayRequestMessage {
     TResult? Function(
             @JsonKey(name: 'from_code') String fromCode,
             @JsonKey(name: 'to_code') String toCode,
+            @JsonKey(name: 'session_id') String? sessionId,
             @JsonKey(name: 'invite_code') String? inviteCode)?
         connectRequest,
     TResult? Function(
@@ -3619,6 +3661,7 @@ class _$RelayRequestMessageImpl implements RelayRequestMessage {
     TResult Function(
             @JsonKey(name: 'from_code') String fromCode,
             @JsonKey(name: 'to_code') String toCode,
+            @JsonKey(name: 'session_id') String? sessionId,
             @JsonKey(name: 'invite_code') String? inviteCode)?
         connectRequest,
     TResult Function(
@@ -3863,6 +3906,7 @@ class _$GenerateInviteMessageImpl implements GenerateInviteMessage {
     required TResult Function(
             @JsonKey(name: 'from_code') String fromCode,
             @JsonKey(name: 'to_code') String toCode,
+            @JsonKey(name: 'session_id') String? sessionId,
             @JsonKey(name: 'invite_code') String? inviteCode)
         connectRequest,
     required TResult Function(
@@ -3921,6 +3965,7 @@ class _$GenerateInviteMessageImpl implements GenerateInviteMessage {
     TResult? Function(
             @JsonKey(name: 'from_code') String fromCode,
             @JsonKey(name: 'to_code') String toCode,
+            @JsonKey(name: 'session_id') String? sessionId,
             @JsonKey(name: 'invite_code') String? inviteCode)?
         connectRequest,
     TResult? Function(
@@ -3979,6 +4024,7 @@ class _$GenerateInviteMessageImpl implements GenerateInviteMessage {
     TResult Function(
             @JsonKey(name: 'from_code') String fromCode,
             @JsonKey(name: 'to_code') String toCode,
+            @JsonKey(name: 'session_id') String? sessionId,
             @JsonKey(name: 'invite_code') String? inviteCode)?
         connectRequest,
     TResult Function(
@@ -4232,6 +4278,7 @@ class _$UseInviteMessageImpl implements UseInviteMessage {
     required TResult Function(
             @JsonKey(name: 'from_code') String fromCode,
             @JsonKey(name: 'to_code') String toCode,
+            @JsonKey(name: 'session_id') String? sessionId,
             @JsonKey(name: 'invite_code') String? inviteCode)
         connectRequest,
     required TResult Function(
@@ -4290,6 +4337,7 @@ class _$UseInviteMessageImpl implements UseInviteMessage {
     TResult? Function(
             @JsonKey(name: 'from_code') String fromCode,
             @JsonKey(name: 'to_code') String toCode,
+            @JsonKey(name: 'session_id') String? sessionId,
             @JsonKey(name: 'invite_code') String? inviteCode)?
         connectRequest,
     TResult? Function(
@@ -4348,6 +4396,7 @@ class _$UseInviteMessageImpl implements UseInviteMessage {
     TResult Function(
             @JsonKey(name: 'from_code') String fromCode,
             @JsonKey(name: 'to_code') String toCode,
+            @JsonKey(name: 'session_id') String? sessionId,
             @JsonKey(name: 'invite_code') String? inviteCode)?
         connectRequest,
     TResult Function(
@@ -4595,6 +4644,7 @@ class _$NearbyUpdateMessageImpl implements NearbyUpdateMessage {
     required TResult Function(
             @JsonKey(name: 'from_code') String fromCode,
             @JsonKey(name: 'to_code') String toCode,
+            @JsonKey(name: 'session_id') String? sessionId,
             @JsonKey(name: 'invite_code') String? inviteCode)
         connectRequest,
     required TResult Function(
@@ -4653,6 +4703,7 @@ class _$NearbyUpdateMessageImpl implements NearbyUpdateMessage {
     TResult? Function(
             @JsonKey(name: 'from_code') String fromCode,
             @JsonKey(name: 'to_code') String toCode,
+            @JsonKey(name: 'session_id') String? sessionId,
             @JsonKey(name: 'invite_code') String? inviteCode)?
         connectRequest,
     TResult? Function(
@@ -4711,6 +4762,7 @@ class _$NearbyUpdateMessageImpl implements NearbyUpdateMessage {
     TResult Function(
             @JsonKey(name: 'from_code') String fromCode,
             @JsonKey(name: 'to_code') String toCode,
+            @JsonKey(name: 'session_id') String? sessionId,
             @JsonKey(name: 'invite_code') String? inviteCode)?
         connectRequest,
     TResult Function(
@@ -4958,6 +5010,7 @@ class _$PeerOfflineMessageImpl implements PeerOfflineMessage {
     required TResult Function(
             @JsonKey(name: 'from_code') String fromCode,
             @JsonKey(name: 'to_code') String toCode,
+            @JsonKey(name: 'session_id') String? sessionId,
             @JsonKey(name: 'invite_code') String? inviteCode)
         connectRequest,
     required TResult Function(
@@ -5016,6 +5069,7 @@ class _$PeerOfflineMessageImpl implements PeerOfflineMessage {
     TResult? Function(
             @JsonKey(name: 'from_code') String fromCode,
             @JsonKey(name: 'to_code') String toCode,
+            @JsonKey(name: 'session_id') String? sessionId,
             @JsonKey(name: 'invite_code') String? inviteCode)?
         connectRequest,
     TResult? Function(
@@ -5074,6 +5128,7 @@ class _$PeerOfflineMessageImpl implements PeerOfflineMessage {
     TResult Function(
             @JsonKey(name: 'from_code') String fromCode,
             @JsonKey(name: 'to_code') String toCode,
+            @JsonKey(name: 'session_id') String? sessionId,
             @JsonKey(name: 'invite_code') String? inviteCode)?
         connectRequest,
     TResult Function(
@@ -5352,6 +5407,7 @@ class _$RelayAssignedMessageImpl implements RelayAssignedMessage {
     required TResult Function(
             @JsonKey(name: 'from_code') String fromCode,
             @JsonKey(name: 'to_code') String toCode,
+            @JsonKey(name: 'session_id') String? sessionId,
             @JsonKey(name: 'invite_code') String? inviteCode)
         connectRequest,
     required TResult Function(
@@ -5410,6 +5466,7 @@ class _$RelayAssignedMessageImpl implements RelayAssignedMessage {
     TResult? Function(
             @JsonKey(name: 'from_code') String fromCode,
             @JsonKey(name: 'to_code') String toCode,
+            @JsonKey(name: 'session_id') String? sessionId,
             @JsonKey(name: 'invite_code') String? inviteCode)?
         connectRequest,
     TResult? Function(
@@ -5468,6 +5525,7 @@ class _$RelayAssignedMessageImpl implements RelayAssignedMessage {
     TResult Function(
             @JsonKey(name: 'from_code') String fromCode,
             @JsonKey(name: 'to_code') String toCode,
+            @JsonKey(name: 'session_id') String? sessionId,
             @JsonKey(name: 'invite_code') String? inviteCode)?
         connectRequest,
     TResult Function(
@@ -5717,6 +5775,7 @@ class _$InviteGeneratedMessageImpl implements InviteGeneratedMessage {
     required TResult Function(
             @JsonKey(name: 'from_code') String fromCode,
             @JsonKey(name: 'to_code') String toCode,
+            @JsonKey(name: 'session_id') String? sessionId,
             @JsonKey(name: 'invite_code') String? inviteCode)
         connectRequest,
     required TResult Function(
@@ -5775,6 +5834,7 @@ class _$InviteGeneratedMessageImpl implements InviteGeneratedMessage {
     TResult? Function(
             @JsonKey(name: 'from_code') String fromCode,
             @JsonKey(name: 'to_code') String toCode,
+            @JsonKey(name: 'session_id') String? sessionId,
             @JsonKey(name: 'invite_code') String? inviteCode)?
         connectRequest,
     TResult? Function(
@@ -5833,6 +5893,7 @@ class _$InviteGeneratedMessageImpl implements InviteGeneratedMessage {
     TResult Function(
             @JsonKey(name: 'from_code') String fromCode,
             @JsonKey(name: 'to_code') String toCode,
+            @JsonKey(name: 'session_id') String? sessionId,
             @JsonKey(name: 'invite_code') String? inviteCode)?
         connectRequest,
     TResult Function(
@@ -6085,6 +6146,7 @@ class _$InviteResultMessageImpl implements InviteResultMessage {
     required TResult Function(
             @JsonKey(name: 'from_code') String fromCode,
             @JsonKey(name: 'to_code') String toCode,
+            @JsonKey(name: 'session_id') String? sessionId,
             @JsonKey(name: 'invite_code') String? inviteCode)
         connectRequest,
     required TResult Function(
@@ -6143,6 +6205,7 @@ class _$InviteResultMessageImpl implements InviteResultMessage {
     TResult? Function(
             @JsonKey(name: 'from_code') String fromCode,
             @JsonKey(name: 'to_code') String toCode,
+            @JsonKey(name: 'session_id') String? sessionId,
             @JsonKey(name: 'invite_code') String? inviteCode)?
         connectRequest,
     TResult? Function(
@@ -6201,6 +6264,7 @@ class _$InviteResultMessageImpl implements InviteResultMessage {
     TResult Function(
             @JsonKey(name: 'from_code') String fromCode,
             @JsonKey(name: 'to_code') String toCode,
+            @JsonKey(name: 'session_id') String? sessionId,
             @JsonKey(name: 'invite_code') String? inviteCode)?
         connectRequest,
     TResult Function(
@@ -6448,6 +6512,7 @@ class _$ErrorMessageImpl implements ErrorMessage {
     required TResult Function(
             @JsonKey(name: 'from_code') String fromCode,
             @JsonKey(name: 'to_code') String toCode,
+            @JsonKey(name: 'session_id') String? sessionId,
             @JsonKey(name: 'invite_code') String? inviteCode)
         connectRequest,
     required TResult Function(
@@ -6506,6 +6571,7 @@ class _$ErrorMessageImpl implements ErrorMessage {
     TResult? Function(
             @JsonKey(name: 'from_code') String fromCode,
             @JsonKey(name: 'to_code') String toCode,
+            @JsonKey(name: 'session_id') String? sessionId,
             @JsonKey(name: 'invite_code') String? inviteCode)?
         connectRequest,
     TResult? Function(
@@ -6564,6 +6630,7 @@ class _$ErrorMessageImpl implements ErrorMessage {
     TResult Function(
             @JsonKey(name: 'from_code') String fromCode,
             @JsonKey(name: 'to_code') String toCode,
+            @JsonKey(name: 'session_id') String? sessionId,
             @JsonKey(name: 'invite_code') String? inviteCode)?
         connectRequest,
     TResult Function(

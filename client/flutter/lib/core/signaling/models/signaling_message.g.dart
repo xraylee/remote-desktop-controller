@@ -77,6 +77,7 @@ _$ConnectRequestMessageImpl _$$ConnectRequestMessageImplFromJson(
     _$ConnectRequestMessageImpl(
       fromCode: json['from_code'] as String,
       toCode: json['to_code'] as String,
+      sessionId: json['session_id'] as String?,
       inviteCode: json['invite_code'] as String?,
       $type: json['type'] as String?,
     );
@@ -86,6 +87,7 @@ Map<String, dynamic> _$$ConnectRequestMessageImplToJson(
     <String, dynamic>{
       'from_code': instance.fromCode,
       'to_code': instance.toCode,
+      'session_id': instance.sessionId,
       'invite_code': instance.inviteCode,
       'type': instance.$type,
     };

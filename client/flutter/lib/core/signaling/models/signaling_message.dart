@@ -55,9 +55,13 @@ sealed class SignalingMessage with _$SignalingMessage {
   }) = HeartbeatMessage;
 
   /// Request a connection to another device.
+  ///
+  /// [sessionId] is populated only on the server→target forward (the server
+  /// mints it); the controller→server request leaves it null.
   const factory SignalingMessage.connectRequest({
     @JsonKey(name: 'from_code') required String fromCode,
     @JsonKey(name: 'to_code') required String toCode,
+    @JsonKey(name: 'session_id') String? sessionId,
     @JsonKey(name: 'invite_code') String? inviteCode,
   }) = ConnectRequestMessage;
 

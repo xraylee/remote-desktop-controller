@@ -42,7 +42,7 @@ void main() {
       final routed = msg.when(
         register: (_, __, ___, ____) => 'register',
         heartbeat: (_, __) => 'heartbeat',
-        connectRequest: (_, __, ___) => 'connect_request',
+        connectRequest: (_, __, ___, ____) => 'connect_request',
         connectResponse: (_, __, ___) => 'connect_response',
         iceOffer: (_, __, ___) => 'ice_offer',
         iceAnswer: (_, __, ___) => 'ice_answer',
@@ -60,6 +60,28 @@ void main() {
       );
 
       expect(routed, 'error:device_offline:device 761335217 is offline');
+    });
+
+    test('connect_request with session_id round-trips', () {
+      const msg = SignalingMessage.connectRequest(
+        fromCode: '761335217',
+        toCode: '123456789',
+        sessionId: 'sess-xyz',
+        inviteCode: null,
+      );
+      final json = msg.toJson();
+      expect(json['session_id'], 'sess-xyz');
+      final parsed = SignalingMessage.fromJson(json);
+      expect(parsed, msg);
+    });
+
+    test('connect_request without session_id has null session_id', () {
+      const msg = SignalingMessage.connectRequest(
+        fromCode: '761335217',
+        toCode: '123456789',
+      );
+      final json = msg.toJson();
+      expect(json['session_id'], isNull);
     });
   });
 }
