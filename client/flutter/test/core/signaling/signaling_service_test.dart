@@ -512,5 +512,45 @@ void main() {
 
       expect(registerCount(), 1);
     });
+
+    test('connect_response is routed to connectResponses stream', () async {
+      await service.connect();
+
+      final responses = <ConnectResponseMessage>[];
+      final sub = service.connectResponses.listen(responses.add);
+
+      mockClient.simulateMessage(const SignalingMessage.connectResponse(
+        accepted: true,
+        sessionId: 'sess-1',
+        fromCode: 'TARGET',
+      ));
+      await Future<void>.delayed(Duration.zero);
+
+      expect(responses, hasLength(1));
+      expect(responses.first.accepted, isTrue);
+      expect(responses.first.sessionId, 'sess-1');
+      expect(responses.first.fromCode, 'TARGET');
+      await sub.cancel();
+    });
+
+    test('connect_request with session_id is routed to invitations stream',
+        () async {
+      await service.connect();
+
+      final invites = <ConnectRequestMessage>[];
+      final sub = service.invitations.listen(invites.add);
+
+      mockClient.simulateMessage(const SignalingMessage.connectRequest(
+        fromCode: 'CTRL',
+        toCode: 'TARGET',
+        sessionId: 'sess-42',
+      ));
+      await Future<void>.delayed(Duration.zero);
+
+      expect(invites, hasLength(1));
+      expect(invites.first.sessionId, 'sess-42');
+      expect(invites.first.fromCode, 'CTRL');
+      await sub.cancel();
+    });
   });
 }

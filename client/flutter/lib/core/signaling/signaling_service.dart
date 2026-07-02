@@ -65,6 +65,12 @@ class SignalingService implements SessionSignaling {
   final _errorsController = StreamController<ErrorMessage>.broadcast();
   Stream<ErrorMessage> get errors => _errorsController.stream;
 
+  /// Connection responses (connect_response from the target device).
+  final _connectResponsesController =
+      StreamController<ConnectResponseMessage>.broadcast();
+  Stream<ConnectResponseMessage> get connectResponses =>
+      _connectResponsesController.stream;
+
   StreamSubscription? _messageSubscription;
   StreamSubscription<WsConnectionState>? _stateSubscription;
 
@@ -234,6 +240,7 @@ class SignalingService implements SessionSignaling {
     _inviteGeneratedController.close();
     _relayAssignedController.close();
     _errorsController.close();
+    _connectResponsesController.close();
     _client.dispose();
   }
 
@@ -297,16 +304,25 @@ class SignalingService implements SessionSignaling {
       // Client → Server messages (should not receive, but handle gracefully)
       register: (_, __, ___, ____) => _logUnexpected('register'),
       heartbeat: (_, __) => _logUnexpected('heartbeat'),
-      connectRequest: (fromCode, toCode, inviteCode) {
-        // This is an incoming connection request
+      connectRequest: (fromCode, toCode, sessionId, inviteCode) {
+        // This is an incoming connection request.
         _invitationsController.add(ConnectRequestMessage(
           fromCode: fromCode,
           toCode: toCode,
+          sessionId: sessionId,
           inviteCode: inviteCode,
         ));
-        print('📞 Connection request from $fromCode');
+        print('📞 Connection request from $fromCode (session $sessionId)');
       },
-      connectResponse: (_, __, ___) => _logUnexpected('connect_response'),
+      connectResponse: (accepted, sessionId, fromCode) {
+        _connectResponsesController.add(ConnectResponseMessage(
+          accepted: accepted,
+          sessionId: sessionId,
+          fromCode: fromCode,
+        ));
+        print(
+            '${accepted ? "✅" : "❌"} connect_response from $fromCode (session $sessionId)');
+      },
       iceOffer: (_, __, ___) => _logUnexpected('ice_offer'),
       iceAnswer: (_, __, ___) => _logUnexpected('ice_answer'),
       iceTrickle: (_, __) => _logUnexpected('ice_trickle'),
