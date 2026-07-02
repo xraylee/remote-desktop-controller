@@ -22,7 +22,8 @@ class SignalingService implements SessionSignaling {
     required this.platform,
     this.version = '0.1.0',
     this.teamId,
-  }) : _client = WebSocketClient(serverUrl: serverUrl);
+    WebSocketClient? client,
+  }) : _client = client ?? WebSocketClient(serverUrl: serverUrl);
 
   final String serverUrl;
   final String deviceCode;
@@ -65,30 +66,42 @@ class SignalingService implements SessionSignaling {
   Stream<ErrorMessage> get errors => _errorsController.stream;
 
   StreamSubscription? _messageSubscription;
+  StreamSubscription<WsConnectionState>? _stateSubscription;
+
+  /// Whether the device has been registered for the current physical
+  /// connection. Edge-triggered: set on the `connected` transition, cleared
+  /// on any non-connected state, so each (re)connection registers exactly
+  /// once and a BehaviorSubject replay of a stale `connected` cannot
+  /// double-register.
+  bool _hasRegisteredForCurrentConnection = false;
 
   // ── Public API ─────────────────────────────────────────────────
 
   /// Connect to the signaling server and register this device.
+  ///
+  /// Wiring is done once here; (re)registration is driven by the connection
+  /// state stream via [_onConnectionStateChanged], so it fires on the first
+  /// connect AND on every automatic reconnect. Reconnection itself remains
+  /// owned by [WebSocketClient].
   Future<void> connect() async {
+    // Listen for incoming messages and route them. The message stream
+    // survives reconnects, so this subscription is set up only once.
+    _messageSubscription ??= _client.messages.listen(_handleMessage);
+
+    // Observe connection state to (re)register on every `connected` edge.
+    _stateSubscription ??= _client.state.listen(_onConnectionStateChanged);
+
     await _client.connect();
-    if (_client.currentState != WsConnectionState.connected) {
-      throw StateError('WebSocket is not connected');
-    }
-
-    // Listen for incoming messages and route them
-    _messageSubscription = _client.messages.listen(_handleMessage);
-
-    // Wait a moment for connection to stabilize
-    await Future.delayed(const Duration(milliseconds: 200));
-
-    // Register device
-    await register();
   }
 
   /// Disconnect from the signaling server.
   void disconnect() {
+    _hasRegisteredForCurrentConnection = false;
     _client.stopHeartbeat();
+    _stateSubscription?.cancel();
+    _stateSubscription = null;
     _messageSubscription?.cancel();
+    _messageSubscription = null;
     _client.disconnect();
   }
 
@@ -214,6 +227,7 @@ class SignalingService implements SessionSignaling {
 
   /// Dispose resources.
   void dispose() {
+    _stateSubscription?.cancel();
     _messageSubscription?.cancel();
     _nearbyDevicesController.close();
     _invitationsController.close();
@@ -224,6 +238,25 @@ class SignalingService implements SessionSignaling {
   }
 
   // ── Private Methods ────────────────────────────────────────────
+
+  /// React to connection state changes to (re)register the device.
+  ///
+  /// Registration is edge-triggered on the `connected` transition, so it
+  /// runs once per physical connection — covering both the first connect and
+  /// every automatic reconnect. The service never initiates a connect here;
+  /// reconnection stays owned by [WebSocketClient].
+  void _onConnectionStateChanged(WsConnectionState state) {
+    if (state == WsConnectionState.connected) {
+      if (!_hasRegisteredForCurrentConnection) {
+        _hasRegisteredForCurrentConnection = true;
+        register();
+      }
+    } else {
+      // reconnecting / disconnected / error: allow the next `connected`
+      // edge to re-register.
+      _hasRegisteredForCurrentConnection = false;
+    }
+  }
 
   /// Route incoming messages to appropriate handlers.
   void _handleMessage(SignalingMessage message) {

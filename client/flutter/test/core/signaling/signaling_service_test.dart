@@ -7,6 +7,8 @@ import 'package:rdcs_client/core/signaling/signaling_service.dart';
 import 'package:rdcs_client/core/signaling/websocket_client.dart';
 import 'package:rdcs_client/core/signaling/models/signaling_message.dart';
 
+import '../../mocks/mock_websocket_client.dart';
+
 void main() {
   group('SignalingService', () {
     late SignalingService service;
@@ -426,6 +428,89 @@ void main() {
       service.disconnect();
       await Future.delayed(const Duration(milliseconds: 50));
       expect(service.currentConnectionState, WsConnectionState.disconnected);
+    });
+  });
+
+  // ── Reconnection & Re-registration (injected mock, no live server) ──────
+  group('SignalingService reconnection', () {
+    const testServerUrl = 'ws://mock:8080';
+    const testDeviceCode = 'TEST123456';
+    const testPlatform = 'test';
+
+    late MockWebSocketClient mockClient;
+    late SignalingService service;
+
+    setUp(() {
+      mockClient = MockWebSocketClient(serverUrl: testServerUrl);
+      service = SignalingService(
+        serverUrl: testServerUrl,
+        deviceCode: testDeviceCode,
+        platform: testPlatform,
+        client: mockClient,
+      );
+    });
+
+    tearDown(() {
+      service.dispose();
+    });
+
+    int registerCount() =>
+        mockClient.sentMessages.whereType<RegisterMessage>().length;
+
+    test('first connect registers exactly once and starts heartbeat',
+        () async {
+      await service.connect();
+      // Let the state-stream observer fire.
+      await Future.delayed(const Duration(milliseconds: 10));
+
+      expect(registerCount(), 1);
+      expect(mockClient.heartbeatStartCount, 1);
+    });
+
+    test('reconnect re-registers and restarts heartbeat', () async {
+      await service.connect();
+      await Future.delayed(const Duration(milliseconds: 10));
+      expect(registerCount(), 1);
+      expect(mockClient.heartbeatStartCount, 1);
+
+      // Simulate an automatic reconnect: reconnecting → connected.
+      mockClient.simulateReconnect();
+      await Future.delayed(const Duration(milliseconds: 10));
+
+      expect(registerCount(), 2,
+          reason: 'device must re-register after reconnect');
+      expect(mockClient.heartbeatStartCount, 2,
+          reason: 'heartbeat must restart after reconnect');
+    });
+
+    test('duplicate connected emission does not double-register', () async {
+      await service.connect();
+      await Future.delayed(const Duration(milliseconds: 10));
+      expect(registerCount(), 1);
+
+      // A stale `connected` replay with no intervening non-connected state
+      // must not trigger a second registration.
+      mockClient.emitState(WsConnectionState.connected);
+      await Future.delayed(const Duration(milliseconds: 10));
+
+      expect(registerCount(), 1);
+      expect(mockClient.heartbeatStartCount, 1);
+    });
+
+    test('no re-registration after manual disconnect', () async {
+      await service.connect();
+      await Future.delayed(const Duration(milliseconds: 10));
+      expect(registerCount(), 1);
+
+      service.disconnect();
+      await Future.delayed(const Duration(milliseconds: 10));
+
+      // A stray `connected` after manual disconnect must be ignored: the
+      // state subscription was cancelled, so no new register is sent.
+      mockClient.emitState(WsConnectionState.connected);
+      await Future.delayed(const Duration(milliseconds: 10));
+
+      expect(registerCount(), 1);
     });
   });
 }

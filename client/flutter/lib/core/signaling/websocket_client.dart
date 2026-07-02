@@ -33,12 +33,24 @@ class WebSocketClient {
     this.heartbeatInterval = const Duration(seconds: 30),
     this.reconnectDelay = const Duration(seconds: 2),
     this.maxReconnectDelay = const Duration(seconds: 30),
+    this.pingInterval = const Duration(seconds: 20),
   });
 
   final String serverUrl;
   final Duration heartbeatInterval;
   final Duration reconnectDelay;
   final Duration maxReconnectDelay;
+
+  /// WebSocket protocol-level ping interval.
+  ///
+  /// Setting this on the underlying `dart:io` [WebSocket] makes Dart send
+  /// periodic pings; if no pong returns within the interval, the socket is
+  /// closed, firing [onDone] and triggering the existing reconnect logic.
+  /// This is what detects a half-open TCP connection (network dropped or
+  /// machine slept with no FIN), which the server cannot signal because it
+  /// neither pings nor acknowledges heartbeats. Kept below the server's 60s
+  /// online-TTL so a dead link is caught within one ping cycle.
+  final Duration pingInterval;
 
   WebSocketChannel? _channel;
   Timer? _heartbeatTimer;
@@ -84,6 +96,9 @@ class WebSocketClient {
         serverUrl,
         customClient: HttpClient()..findProxy = (uri) => 'DIRECT',
       );
+      // Enable protocol-level ping/pong so a half-open connection (no FIN)
+      // is detected and closed, firing onDone → _scheduleReconnect().
+      socket.pingInterval = pingInterval;
       _channel = IOWebSocketChannel(socket);
 
       // Listen for incoming messages

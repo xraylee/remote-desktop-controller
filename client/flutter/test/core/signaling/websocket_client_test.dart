@@ -22,6 +22,19 @@ void main() {
 
     // ── Connection State Management ──────────────────────────────
 
+    test('exposes configurable pingInterval with a sensible default', () {
+      final realClient = WebSocketClient(serverUrl: 'ws://localhost:8080');
+      // Default must stay below the server's 60s online TTL so a half-open
+      // link is detected within one ping cycle.
+      expect(realClient.pingInterval, const Duration(seconds: 20));
+
+      final custom = WebSocketClient(
+        serverUrl: 'ws://localhost:8080',
+        pingInterval: const Duration(seconds: 5),
+      );
+      expect(custom.pingInterval, const Duration(seconds: 5));
+    });
+
     test('initial state is disconnected', () {
       expect(client.currentState, WsConnectionState.disconnected);
     });

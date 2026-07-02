@@ -15,6 +15,7 @@ class MockWebSocketClient implements WebSocketClient {
     this.heartbeatInterval = const Duration(seconds: 30),
     this.reconnectDelay = const Duration(seconds: 5),
     this.maxReconnectDelay = const Duration(seconds: 60),
+    this.pingInterval = const Duration(seconds: 20),
   });
 
   final bool shouldFailConnection;
@@ -32,6 +33,9 @@ class MockWebSocketClient implements WebSocketClient {
   @override
   final Duration maxReconnectDelay;
 
+  @override
+  final Duration pingInterval;
+
   final _stateController = BehaviorSubject<WsConnectionState>.seeded(
     WsConnectionState.disconnected,
   );
@@ -39,6 +43,10 @@ class MockWebSocketClient implements WebSocketClient {
 
   final List<SignalingMessage> sentMessages = [];
   Timer? _heartbeatTimer;
+
+  /// Number of times [startHeartbeat] has been called (for asserting that
+  /// heartbeat is restarted after a reconnect).
+  int heartbeatStartCount = 0;
 
   @override
   Stream<WsConnectionState> get state => _stateController.stream;
@@ -81,6 +89,7 @@ class MockWebSocketClient implements WebSocketClient {
 
   @override
   void startHeartbeat(String deviceCode) {
+    heartbeatStartCount++;
     _heartbeatTimer?.cancel();
     _heartbeatTimer = Timer.periodic(const Duration(seconds: 30), (_) {
       if (currentState == WsConnectionState.connected) {
@@ -106,6 +115,19 @@ class MockWebSocketClient implements WebSocketClient {
   /// Simulate connection loss.
   void simulateDisconnection() {
     _stateController.add(WsConnectionState.disconnected);
+  }
+
+  /// Emit an arbitrary connection state (for driving reconnect edges).
+  void emitState(WsConnectionState state) {
+    _stateController.add(state);
+  }
+
+  /// Simulate an automatic reconnect: the internal client drops, enters
+  /// `reconnecting`, then comes back up as `connected` — the same edge
+  /// sequence a real [WebSocketClient] produces on reconnect.
+  void simulateReconnect() {
+    _stateController.add(WsConnectionState.reconnecting);
+    _stateController.add(WsConnectionState.connected);
   }
 
   /// Clean up resources.
