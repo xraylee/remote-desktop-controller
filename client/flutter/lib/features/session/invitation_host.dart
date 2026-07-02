@@ -49,7 +49,14 @@ class _InvitationHostState extends ConsumerState<InvitationHost> {
     }
 
     final context = widget.navigatorKey.currentContext;
-    if (context == null) return;
+    if (context == null) {
+      service.respondToConnection(
+        sessionId: sessionId,
+        fromCode: req.fromCode,
+        accepted: false,
+      );
+      return;
+    }
 
     _dialogActive = true;
     try {
