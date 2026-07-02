@@ -328,12 +328,16 @@ mod tests {
             WsMessage::ConnectRequest {
                 from_code,
                 to_code,
-                session_id: _,
+                session_id,
                 invite_code,
             } => {
                 assert_eq!(from_code, "CTRL");
                 assert_eq!(to_code, "TARGET");
                 assert_eq!(invite_code.as_deref(), Some(code.as_str()));
+                assert!(
+                    session_id.as_deref().is_some_and(|s| !s.is_empty()),
+                    "invite-forwarded ConnectRequest must carry a non-empty session_id"
+                );
             }
             other => panic!("expected ConnectRequest, got: {other:?}"),
         }

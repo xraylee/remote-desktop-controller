@@ -100,7 +100,7 @@ pub async fn handle_connect_request(
             WsMessage::ConnectRequest {
                 from_code: from_code.to_string(),
                 to_code: to_code.to_string(),
-                session_id: Some(session_id.clone()),
+                session_id: Some(session_id),
                 invite_code: invite_code.map(String::from),
             },
         )
