@@ -220,6 +220,14 @@ extern "C" {
         block_buffer_out: *mut CMBlockBufferRef,
     ) -> OSStatus;
 
+}
+
+// `CFRelease` lives in CoreFoundation, not CoreMedia — declare it in its own
+// CoreFoundation-linked block so the symbol resolves when this crate is linked
+// into a binary (examples, FFI cdylib). Without this the decoder path fails at
+// link time with "Undefined symbols: _CFRelease".
+#[link(name = "CoreFoundation", kind = "framework")]
+extern "C" {
     fn CFRelease(cf: *const std::ffi::c_void);
 }
 

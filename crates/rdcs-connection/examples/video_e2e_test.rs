@@ -276,7 +276,7 @@ fn generate_test_frame(frame_id: u32) -> CapturedFrame {
     }
 
     CapturedFrame {
-        data,
+        data: data.into(),
         width: WIDTH,
         height: HEIGHT,
         pixel_format: PixelFormat::Bgra,
