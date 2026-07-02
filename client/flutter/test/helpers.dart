@@ -15,6 +15,7 @@ import 'package:rdcs_client/core/ffi/engine_events.dart';
 import 'package:rdcs_client/core/ffi/engine_isolate.dart';
 import 'package:rdcs_client/core/signaling/models/signaling_message.dart';
 import 'package:rdcs_client/core/signaling/session_signaling.dart';
+import 'package:rdcs_client/core/signaling/signaling_service.dart';
 import 'package:rdcs_client/core/signaling/websocket_client.dart';
 import 'package:rdcs_client/features/connect/connect_page.dart';
 import 'package:rdcs_client/features/home/home_page.dart';
@@ -291,3 +292,143 @@ Future<ProviderContainer> pumpTestApp(
 
 const testDeviceCode = '123456789';
 const testDeviceCodeFormatted = '123-456-789';
+
+// =============================================================================
+// LoopbackSignalingBus — in-memory stand-in for the signaling server that
+// routes one initiator to one acceptor without any network I/O.
+//
+// It reproduces the two routing facts the real server enforces (see
+// crates/rdcs-signaling/src/handlers/connect.rs) that the UI relies on:
+//
+//   • connect_request(from=initiator, to=acceptor) is delivered to the
+//     acceptor as an `invitation`, carrying a server-minted session_id.
+//   • connect_response is delivered back to the *initiator* with `from_code`
+//     rewritten to the **responder's own device code** (server line ~159 uses
+//     the responder's connection identity via take_pending_connection, NOT the
+//     `from_code` the client put in the body). This is why the initiator can
+//     match on `fromCode == the code it dialed`, and why InvitationHost's body
+//     `fromCode` is a don't-care on the happy path.
+//
+// A single bus backs both the initiator's [SessionSignaling] view
+// ([busInitiatorSignaling]) and the acceptor's [SignalingService] view
+// ([BusAcceptorSignalingService]), so a single-process widget test can drive
+// the full UI handshake through it.
+// =============================================================================
+
+class LoopbackSignalingBus {
+  LoopbackSignalingBus({
+    required this.initiatorCode,
+    required this.acceptorCode,
+    this.sessionId = 'loopback-session',
+  });
+
+  final String initiatorCode;
+  final String acceptorCode;
+
+  /// The session_id the "server" mints for this connection.
+  final String sessionId;
+
+  // Stream the acceptor's InvitationHost listens on (its `invitations`).
+  final _invitations = StreamController<ConnectRequestMessage>.broadcast();
+
+  // Stream the initiator's SessionNotifier listens on (its `connectResponses`).
+  final _connectResponses = StreamController<ConnectResponseMessage>.broadcast();
+
+  Stream<ConnectRequestMessage> get invitations => _invitations.stream;
+  Stream<ConnectResponseMessage> get connectResponses =>
+      _connectResponses.stream;
+
+  /// Initiator dials the acceptor. The bus mints a session_id and forwards a
+  /// connect_request to the acceptor, exactly as the server would.
+  void routeConnectRequest(String targetCode, {String? inviteCode}) {
+    _invitations.add(ConnectRequestMessage(
+      fromCode: initiatorCode,
+      toCode: targetCode,
+      sessionId: sessionId,
+      inviteCode: inviteCode,
+    ));
+  }
+
+  /// Acceptor responds. The bus rewrites `from_code` to the acceptor's own
+  /// code before delivering to the initiator — mirroring the server, and
+  /// deliberately ignoring the [bodyFromCode] the client supplied.
+  void routeConnectResponse({
+    required String sessionId,
+    required String bodyFromCode,
+    required bool accepted,
+  }) {
+    _connectResponses.add(ConnectResponseMessage(
+      accepted: accepted,
+      sessionId: sessionId,
+      fromCode: acceptorCode, // server rewrites to responder identity
+    ));
+  }
+
+  Future<void> dispose() async {
+    await _invitations.close();
+    await _connectResponses.close();
+  }
+}
+
+/// Initiator-side [SessionSignaling] view backed by a [LoopbackSignalingBus].
+///
+/// `requestConnection` routes onto the bus; `connectResponses` is the bus's
+/// initiator-facing stream. This is what the `sessionProvider` under test uses.
+class BusInitiatorSignaling implements SessionSignaling {
+  BusInitiatorSignaling(this.bus);
+
+  final LoopbackSignalingBus bus;
+
+  @override
+  String get deviceCode => bus.initiatorCode;
+
+  @override
+  WsConnectionState currentConnectionState = WsConnectionState.connected;
+
+  @override
+  Stream<ConnectResponseMessage> get connectResponses => bus.connectResponses;
+
+  @override
+  Future<void> connect() async {
+    currentConnectionState = WsConnectionState.connected;
+  }
+
+  @override
+  void requestConnection(String targetCode, {String? inviteCode}) {
+    bus.routeConnectRequest(targetCode, inviteCode: inviteCode);
+  }
+}
+
+/// Acceptor-side [SignalingService] view backed by a [LoopbackSignalingBus].
+///
+/// Only the members the acceptor path touches are implemented:
+/// `respondToConnection` routes onto the bus. `invitations` is provided via a
+/// provider override in the test, not this object. Everything else falls
+/// through to [noSuchMethod] (unused by the dialog flow).
+class BusAcceptorSignalingService implements SignalingService {
+  BusAcceptorSignalingService(this.bus);
+
+  final LoopbackSignalingBus bus;
+
+  /// Records what InvitationHost actually passed, so the test can pin the
+  /// (currently initiator-code) body semantics without changing production.
+  String? lastRespondBodyFromCode;
+
+  @override
+  void respondToConnection({
+    required String sessionId,
+    required String fromCode,
+    required bool accepted,
+  }) {
+    lastRespondBodyFromCode = fromCode;
+    bus.routeConnectResponse(
+      sessionId: sessionId,
+      bodyFromCode: fromCode,
+      accepted: accepted,
+    );
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) =>
+      super.noSuchMethod(invocation);
+}
