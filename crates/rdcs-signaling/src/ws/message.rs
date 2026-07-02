@@ -36,10 +36,15 @@ pub enum WsMessage {
     Heartbeat { device_code: String, ts: u64 },
 
     /// Controller requests a connection to a target device.
+    ///
+    /// `session_id` is present only on the server→target forward (the server
+    /// mints it); the controller→server request omits it.
     #[serde(rename = "connect_request")]
     ConnectRequest {
         from_code: String,
         to_code: String,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        session_id: Option<String>,
         #[serde(skip_serializing_if = "Option::is_none")]
         invite_code: Option<String>,
     },
@@ -194,15 +199,30 @@ mod tests {
 
     #[test]
     fn connect_request_round_trip() {
+        // server→B direction: carries session_id
         let msg = WsMessage::ConnectRequest {
             from_code: "CTRL".into(),
             to_code: "TARGET".into(),
+            session_id: Some("sess-abc".into()),
             invite_code: Some("INV001".into()),
         };
         let json = serde_json::to_string(&msg).unwrap();
         assert!(json.contains(r#""type":"connect_request""#));
+        assert!(json.contains(r#""session_id":"sess-abc""#));
         let parsed: WsMessage = serde_json::from_str(&json).unwrap();
         assert_eq!(parsed, msg);
+
+        // controller→server direction: no session_id, should be omitted
+        let msg_none = WsMessage::ConnectRequest {
+            from_code: "CTRL".into(),
+            to_code: "TARGET".into(),
+            session_id: None,
+            invite_code: None,
+        };
+        let json_none = serde_json::to_string(&msg_none).unwrap();
+        assert!(!json_none.contains("session_id"));
+        let parsed_none: WsMessage = serde_json::from_str(&json_none).unwrap();
+        assert_eq!(parsed_none, msg_none);
     }
 
     #[test]
