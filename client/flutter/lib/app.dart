@@ -15,12 +15,17 @@ import 'features/session/session_screen.dart';
 import 'features/admin/admin_page.dart';
 import 'features/settings/settings_screen.dart';
 import 'features/debug/signaling_debug_page.dart';
+import 'features/session/invitation_host.dart';
 
 // ── Dark mode provider ────────────────────────────────────────
 
 /// Reactive boolean that controls light vs dark theme.
 /// Persisted in-memory only; toggled via the tray "切换主题" menu.
 final darkModeProvider = StateProvider<bool>((ref) => false);
+
+/// Root navigator key — lets app-wide hosts (e.g. invitation dialogs) show
+/// overlays regardless of the current route.
+final rootNavigatorKey = GlobalKey<NavigatorState>();
 
 /// Application-level GoRouter configuration.
 ///
@@ -32,6 +37,7 @@ final darkModeProvider = StateProvider<bool>((ref) => false);
 ///   /settings  → SettingsScreen (security, network, general)
 final goRouterProvider = Provider<GoRouter>((ref) {
   return GoRouter(
+    navigatorKey: rootNavigatorKey,
     initialLocation: '/',
     routes: [
       GoRoute(
@@ -176,6 +182,10 @@ class _RdcsAppState extends ConsumerState<RdcsApp> with WindowListener {
       darkTheme: _buildDarkTheme(),
       themeMode: isDark ? ThemeMode.dark : ThemeMode.light,
       routerConfig: router,
+      builder: (context, child) => InvitationHost(
+        navigatorKey: rootNavigatorKey,
+        child: child ?? const SizedBox.shrink(),
+      ),
     );
   }
 
