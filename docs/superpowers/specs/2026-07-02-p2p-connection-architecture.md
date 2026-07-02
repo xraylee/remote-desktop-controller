@@ -125,7 +125,7 @@ wire 不变,B 端自己 `Uuid` 生成回传。
 
 **倾向 5-1**:一次性动 wire,换全程 id 一致。5-2 省一次协议改动,但留一个"服务端记的 id 和真实会话 id 不同"的隐患,B 里程碑接 relay 时会被绊到。
 
-> 决策点:请在 5-1 / 5-2 间拍板(或确认采纳推荐的 5-1)。
+> **决策(2026-07-02 已定):采纳 5-1。** ConnectRequest 携带服务端生成的 session_id,B 原样带回,全程 id 唯一来源=服务端。里程碑 A 的 spec 以此为前提。
 
 ---
 
@@ -142,9 +142,9 @@ wire 不变,B 端自己 `Uuid` 生成回传。
 2. **`connectResponseProvider`**(新,`signaling_provider.dart`)——暴露 `service.connectResponse` 流(service 侧需把 `connectResponse` 从 `_logUnexpected` 改为 add 进新 controller)。
    - 消费方:`SessionNotifier.connect`,用于把"发 request 后乐观直连"改为"等 response(accepted=true)再 `_engine.connect` / 进 `/session`"。
 
-3. **`SignalingService` 改动**——`_handleMessage` 的 `connectResponse:` 分支改为 add 进 `_connectResponseController`;`connectRequest:` 分支带上 session_id(若采 5-1)。
+3. **`SignalingService` 改动**——`_handleMessage` 的 `connectResponse:` 分支改为 add 进 `_connectResponseController`;`connectRequest:` 分支带上 session_id(采 5-1)。
 
-4. **服务端协议补丁**(若采 5-1)——`ConnectRequest` 加 `session_id`,`handle_connect_request` 填入。
+4. **服务端协议补丁**(5-1)——`ConnectRequest` 加 `session_id`,`handle_connect_request` 填入。
 
 **A 的时序:**
 ```
