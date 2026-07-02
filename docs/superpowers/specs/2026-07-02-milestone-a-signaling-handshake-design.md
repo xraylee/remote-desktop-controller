@@ -32,7 +32,7 @@ A 发起连接 → B 端**无论在哪个页面**都弹出接受/拒绝对话框
 | AC6 | A 发起,B 设备离线 | A 收到 `error{code:device_offline}`,提示后回 idle(现状已实现,验证不回归) |
 | AC7 | B dialog 开着时,C 也发起连接 | C 立即收到 `accepted:false`;B 的当前 dialog 不受干扰 |
 | AC8 | A 发起后,收到 accepted 前 | A 处于 `connecting` 态,**不**调用 `_engine.connect`、**不**进 `/session` |
-| AC9 | A 等 response 网络超时(如 15s 无 response 且无 error) | A 报错回 idle |
+| AC9 | A 等 response 网络超时(35s 无 response 且无 error) | A 报错回 idle |
 | AC10 | session_id 全程一致 | B 回传的 session_id == 服务端为该 request 生成的 UUID == controller 收到的 session_id |
 
 ---
@@ -90,7 +90,7 @@ A 发起连接 → B 端**无论在哪个页面**都弹出接受/拒绝对话框
 **文件**:`features/session/session_providers.dart`
 
 - `SessionNotifier.connect` 现有流程:发 `requestConnection` → 立即 `await _engine.connect(code)`。
-- 改为:发 `requestConnection` 后,`await` 一个"等 `connectResponses` 流里 fromCode 匹配的 response 或超时(15s)"的 Future:
+- 改为:发 `requestConnection` 后,`await` 一个"等 `connectResponses` 流里 fromCode 匹配的 response 或超时(35s,略大于 B dialog 30s 倒计时)"的 Future:
   - `accepted:true` → **A 里程碑到此为止**,状态标记为已握手(媒体由 B 里程碑接管;A 阶段可临时进 `/session` 占位或停在 connecting——见 §5 开放问题)。
   - `accepted:false` → `state = error` / 回 idle,提示"对方已拒绝"。
   - 超时/`device_offline` error → `state = error`,提示。
@@ -130,7 +130,7 @@ A(controller)                    server                    B(target)
 |---|---|
 | B 离线 | 服务端 `error{device_offline}`(已实现)→ A `signalingErrorsProvider` 消费并提示。**注**:该错误流当前无 UI 消费方,A 里程碑需接线到发起流程的错误提示。 |
 | B 拒绝 / dialog 超时 | `accepted:false` → A 回 idle,提示"对方已拒绝或超时" |
-| A 等 response 超时(15s) | A `state=error` 回 idle |
+| A 等 response 超时(35s) | A `state=error` 回 idle |
 | B dialog 开着又来请求 | 新请求即拒(`accepted:false`),不打断当前 dialog |
 | 信令 WS 断线(A 等待中) | 复用现有重连(memory `rdcs-reconnect-reregister`);gating Future 超时兜底 |
 
@@ -154,11 +154,11 @@ A(controller)                    server                    B(target)
 
 ---
 
-## 7. 开放问题(需评审确认)
+## 7. 已定决策(2026-07-02 评审采纳)
 
-1. **A 收到 accepted 后停在哪?** A 里程碑不出媒体。选项:(a)停在 `connecting` 态显示"已连接,等待画面"占位;(b)临时进 `/session` 显示空画面占位。倾向 (a)——避免 B 里程碑前进入一个功能空壳页。**默认取 (a),除非评审反对。**
-2. **等 response 超时时长**:暂定 15s。dialog 侧 B 有 30s 倒计时,A 侧超时应 > B 倒计时?若 A 15s 先超时而 B 30s 才拒,会出现 A 已 idle 但 B 仍在弹框。**建议 A 超时设为 35s(略大于 B 的 30s),避免二者竞态。默认取 35s。**
-3. **navigatorKey 注入方式**:GoRouter 用 `navigatorKey` 参数注入全局 key;宿主监听 widget 放 `MaterialApp.router` 的 `builder:`。实现细节留 plan。
+1. **A 收到 accepted 后停在哪?** **取 (a)**:停在 `connecting` 态显示"已连接,等待画面"占位,**不**进 `/session` 空壳页。媒体由里程碑 B 接管后再进 session。
+2. **等 response 超时时长**:**取 35s**(略大于 B 侧 dialog 的 30s 倒计时),避免"A 先超时回 idle 而 B 仍在弹框"的竞态。
+3. **navigatorKey 注入方式**:GoRouter 用 `navigatorKey` 参数注入全局 key;宿主监听 widget 放 `MaterialApp.router` 的 `builder:`。实现细节在 plan 落地。
 
 ---
 
