@@ -3,6 +3,7 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { apiClient } from '@/api/client'
+import { buildTeamPath } from '@/api/teamApi'
 import { useState } from 'react'
 
 interface Device {
@@ -34,7 +35,7 @@ export default function DevicesPage() {
       if (statusFilter !== 'all') {
         params.append('status', statusFilter)
       }
-      const res = await apiClient.get(`/api/devices?${params}`)
+      const res = await apiClient.get(buildTeamPath(`devices?${params}`))
       return res.data as Device[]
     },
     refetchInterval: 3000,
@@ -42,7 +43,7 @@ export default function DevicesPage() {
 
   const kickDeviceMutation = useMutation({
     mutationFn: async (deviceCode: string) => {
-      await apiClient.post(`/api/devices/${deviceCode}/kick`)
+      await apiClient.post(buildTeamPath(`devices/${deviceCode}/kick`))
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['devices'] })
@@ -56,7 +57,7 @@ export default function DevicesPage() {
 
   const disableDeviceMutation = useMutation({
     mutationFn: async (deviceCode: string) => {
-      await apiClient.post(`/api/devices/${deviceCode}/disable`)
+      await apiClient.post(buildTeamPath(`devices/${deviceCode}/disable`))
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['devices'] })
@@ -70,7 +71,7 @@ export default function DevicesPage() {
 
   const enableDeviceMutation = useMutation({
     mutationFn: async (deviceCode: string) => {
-      await apiClient.post(`/api/devices/${deviceCode}/enable`)
+      await apiClient.post(buildTeamPath(`devices/${deviceCode}/enable`))
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['devices'] })

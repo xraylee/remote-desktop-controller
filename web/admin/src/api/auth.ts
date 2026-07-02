@@ -14,6 +14,7 @@ export interface LoginResponse {
 
 export interface MemberDto {
   id: string
+  team_id: string
   email: string
   name: string
   role: 'super_admin' | 'admin' | 'operator' | 'viewer'

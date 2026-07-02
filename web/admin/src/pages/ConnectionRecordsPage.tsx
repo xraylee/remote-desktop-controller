@@ -3,6 +3,7 @@
 
 import { useQuery } from '@tanstack/react-query'
 import { apiClient } from '@/api/client'
+import { buildTeamPath } from '@/api/teamApi'
 import { useState } from 'react'
 
 interface ConnectionRecord {
@@ -37,7 +38,7 @@ export default function ConnectionRecordsPage() {
       if (searchQuery) {
         params.append('search', searchQuery)
       }
-      const res = await apiClient.get(`/api/records?${params}`)
+      const res = await apiClient.get(buildTeamPath(`records?${params}`))
       return res.data as {
         records: ConnectionRecord[]
         total: number
@@ -52,7 +53,7 @@ export default function ConnectionRecordsPage() {
       const params = new URLSearchParams({ time_range: timeRange })
       if (searchQuery) params.append('search', searchQuery)
 
-      const res = await apiClient.get(`/api/records/export?${params}`, {
+      const res = await apiClient.get(buildTeamPath(`records/export?${params}`), {
         responseType: 'blob',
       })
 

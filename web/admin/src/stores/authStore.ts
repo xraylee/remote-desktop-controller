@@ -9,6 +9,7 @@ import { loginRequest, logoutRequest, type MemberDto } from '@/api/auth'
 
 export interface Member {
   id: string
+  team_id: string
   email: string
   name: string
   role: 'super_admin' | 'admin' | 'operator' | 'viewer'
@@ -29,7 +30,7 @@ export interface AuthState {
 // ---------- Helpers ----------
 
 function dtoToMember(dto: MemberDto): Member {
-  return { id: dto.id, email: dto.email, name: dto.name, role: dto.role }
+  return { id: dto.id, team_id: dto.team_id, email: dto.email, name: dto.name, role: dto.role }
 }
 
 function loadRefreshToken(): string | null {

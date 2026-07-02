@@ -11,7 +11,8 @@ YELLOW='\033[1;33m'
 RED='\033[0;31m'
 NC='\033[0m'
 
-PROJECT_ROOT="$(cd "$(dirname "$0")" && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 cd "$PROJECT_ROOT"
 
 # 步骤 1: 编译 Rust FFI 库
@@ -20,7 +21,7 @@ cd crates/rdcs-ffi
 cargo build --lib --features software-encoder
 cd "$PROJECT_ROOT"
 
-RUST_LIB="$PROJECT_ROOT/target/debug/librdcs_ffi.dylib"
+RUST_LIB="$PROJECT_ROOT/target/debug/librdcs_core.dylib"
 
 if [ ! -f "$RUST_LIB" ]; then
     echo -e "${RED}❌ 编译失败${NC}"

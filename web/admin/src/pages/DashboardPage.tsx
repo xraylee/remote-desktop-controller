@@ -3,6 +3,7 @@
 
 import { useQuery } from '@tanstack/react-query'
 import { apiClient } from '@/api/client'
+import { buildTeamPath } from '@/api/teamApi'
 import { useEffect, useState } from 'react'
 
 interface DashboardStats {
@@ -37,7 +38,7 @@ export default function DashboardPage() {
   const { data: stats, isLoading: statsLoading } = useQuery<DashboardStats>({
     queryKey: ['dashboard-stats'],
     queryFn: async () => {
-      const res = await apiClient.get('/api/dashboard/stats')
+      const res = await apiClient.get(buildTeamPath('dashboard/stats'))
       return res.data
     },
     refetchInterval: 5000,
@@ -46,7 +47,7 @@ export default function DashboardPage() {
   const { data: trends } = useQuery<ConnectionTrend[]>({
     queryKey: ['connection-trends'],
     queryFn: async () => {
-      const res = await apiClient.get('/api/dashboard/trends?days=7')
+      const res = await apiClient.get(buildTeamPath('dashboard/trends?days=7'))
       return res.data
     },
     refetchInterval: 30000,
@@ -55,7 +56,7 @@ export default function DashboardPage() {
   const { data: activities } = useQuery<RecentActivity[]>({
     queryKey: ['recent-activities'],
     queryFn: async () => {
-      const res = await apiClient.get('/api/dashboard/activities?limit=10')
+      const res = await apiClient.get(buildTeamPath('dashboard/activities?limit=10'))
       return res.data
     },
     refetchInterval: 3000,

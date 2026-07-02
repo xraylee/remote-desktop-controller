@@ -83,8 +83,9 @@ services:
       LOG_LEVEL: ${LOG_LEVEL:-info}
       DATABASE_URL: postgres://rdcs:${POSTGRES_PASSWORD:-rdcs_dev}@postgres:5432/rdcs?sslmode=disable
       REDIS_URL: redis://redis:6379
-      JWT_PRIVATE_KEY: ${JWT_PRIVATE_KEY:-}
-      JWT_PUBLIC_KEY: ${JWT_PUBLIC_KEY:-}
+      JWT_ISSUER: ${JWT_ISSUER:-rdcs-api}
+      JWT_PRIVATE_KEY: ${JWT_PRIVATE_KEY}
+      JWT_PUBLIC_KEY: ${JWT_PUBLIC_KEY}
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000}
       TOTP_ISSUER: ${TOTP_ISSUER:-RDCS}
     depends_on:

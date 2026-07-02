@@ -1,7 +1,8 @@
 #!/bin/bash
 # 查看 RDCS 后端服务日志
 
-cd "$(dirname "$0")/deploy/docker"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$SCRIPT_DIR/../../deploy/docker"
 
 if [ "$1" == "api" ]; then
     echo "📝 API 服务日志 (Ctrl+C 退出):"
