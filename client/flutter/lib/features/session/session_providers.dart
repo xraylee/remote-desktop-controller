@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import 'dart:async';
-import 'dart:convert';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:freezed_annotation/freezed_annotation.dart';
@@ -110,15 +109,21 @@ class SessionNotifier extends StateNotifier<SessionInfo?> {
         throw requestError;
       }
 
-      final sessionId = await _engine.connect(code);
-      if (sessionId > 0) {
-        state = state?.copyWith(
-          sessionId: sessionId,
-          state: SessionState.connected,
-        );
-      } else {
+      // Wait for the target's connect_response (accept/reject), matched by
+      // fromCode == the code we dialed. 35s > the 30s dialog countdown on the
+      // target side, avoiding a race where we time out while they decide.
+      final response = await _signaling.connectResponses
+          .firstWhere((r) => r.fromCode == code)
+          .timeout(const Duration(seconds: 35));
+
+      if (!response.accepted) {
         state = state?.copyWith(state: SessionState.error);
+        return;
       }
+
+      // Accepted. Milestone A stops here — media is Milestone B. Remain in
+      // `connected` (signaling-established) without driving the mock engine.
+      state = state?.copyWith(state: SessionState.connected);
     } catch (e) {
       state = state?.copyWith(state: SessionState.error);
     }

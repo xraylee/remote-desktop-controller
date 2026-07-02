@@ -2,10 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:rdcs_client/core/ffi/engine_isolate.dart';
+import 'package:rdcs_client/core/signaling/models/signaling_message.dart';
 import 'package:rdcs_client/core/signaling/websocket_client.dart';
 import 'package:rdcs_client/features/session/session_providers.dart';
 import 'helpers.dart';
@@ -67,23 +67,31 @@ void main() {
     });
 
     testWidgets('验证 — 带空格的9位代码通过验证', (tester) async {
-      final container = await pumpTestApp(tester, initialLocation: '/connect');
+      final signaling = FakeSessionSignaling();
+      await pumpTestApp(
+        tester,
+        initialLocation: '/connect',
+        fakeSignaling: signaling,
+      );
       await tester.pumpAndSettle();
 
       // Enter code with spaces — validator strips them.
       await tester.enterText(find.byType(TextFormField).first, '123 456 789');
       await tester.tap(find.text('连接'));
+      await tester.pump(); // let connect() reach the connect_response await
+      // Resolve the pending handshake so no timeout timer leaks.
+      signaling.emitConnectResponse(const ConnectResponseMessage(
+          accepted: true, sessionId: 'sess-1', fromCode: '123456789'));
       await tester.pump(const Duration(milliseconds: 100));
 
       // Should NOT show validation error (code is valid after stripping).
       expect(find.text('请输入9位设备代码'), findsNothing);
 
-      // Verify the engine's connect was called with the stripped code.
-      final engine = container.read(engineProvider) as FakeEngineIsolate;
-      expect(engine.lastConnectCode, '123456789');
+      // The stripped code is what gets dialed via connect_request.
+      expect(signaling.lastRequestTargetCode, '123456789');
     });
 
-    testWidgets('输入有效9位代码并连接，调用 sessionProvider.connect()', (tester) async {
+    testWidgets('输入有效9位代码并连接，发出 connect_request 并等待接受', (tester) async {
       final signaling = FakeSessionSignaling();
       final container = await pumpTestApp(
         tester,
@@ -94,19 +102,18 @@ void main() {
 
       await tester.enterText(find.byType(TextFormField).first, '987654321');
       await tester.tap(find.text('连接'));
-      for (var i = 0; i < 10; i++) {
-        await tester.pump(const Duration(milliseconds: 100));
-        if (find.text('输入对方设备代码').evaluate().isEmpty) {
-          break;
-        }
-      }
+      await tester.pump(); // reach the connect_response await
 
-      // Verify the fake engine received the connect call.
-      final engine = container.read(engineProvider) as FakeEngineIsolate;
-      expect(engine.lastConnectCode, '987654321');
+      // Request was dialed; engine.connect is NOT driven in milestone A.
       expect(signaling.lastRequestTargetCode, '987654321');
+      final engine = container.read(engineProvider) as FakeEngineIsolate;
+      expect(engine.lastConnectCode, isNull);
 
-      // The session notifier should have processed the connection.
+      // Target accepts — handshake completes to connected.
+      signaling.emitConnectResponse(const ConnectResponseMessage(
+          accepted: true, sessionId: 'sess-1', fromCode: '987654321'));
+      await tester.pump(const Duration(milliseconds: 100));
+
       final session = container.read(sessionProvider);
       expect(session, isNotNull);
       expect(session!.state, SessionState.connected);
@@ -115,7 +122,7 @@ void main() {
     testWidgets('输入设备码与邀请码，邀请码随 connect_request 一并发送',
         (tester) async {
       final signaling = FakeSessionSignaling();
-      final container = await pumpTestApp(
+      await pumpTestApp(
         tester,
         initialLocation: '/connect',
         fakeSignaling: signaling,
@@ -126,17 +133,15 @@ void main() {
       await tester.enterText(find.byType(TextFormField).first, '761335217');
       await tester.enterText(find.byType(TextFormField).at(1), 'INVITE42');
       await tester.tap(find.text('连接'));
-      for (var i = 0; i < 10; i++) {
-        await tester.pump(const Duration(milliseconds: 100));
-        if (find.text('输入对方设备代码').evaluate().isEmpty) {
-          break;
-        }
-      }
+      await tester.pump(); // reach the connect_response await
 
-      final engine = container.read(engineProvider) as FakeEngineIsolate;
-      expect(engine.lastConnectCode, '761335217');
       expect(signaling.lastRequestTargetCode, '761335217');
       expect(signaling.lastInviteCode, 'INVITE42');
+
+      // Resolve the handshake so the timeout timer does not leak.
+      signaling.emitConnectResponse(const ConnectResponseMessage(
+          accepted: true, sessionId: 'sess-1', fromCode: '761335217'));
+      await tester.pump(const Duration(milliseconds: 100));
     });
 
     testWidgets('不填邀请码时 connect_request 的 inviteCode 为 null',
@@ -151,15 +156,15 @@ void main() {
 
       await tester.enterText(find.byType(TextFormField).first, '761335217');
       await tester.tap(find.text('连接'));
-      for (var i = 0; i < 10; i++) {
-        await tester.pump(const Duration(milliseconds: 100));
-        if (find.text('输入对方设备代码').evaluate().isEmpty) {
-          break;
-        }
-      }
+      await tester.pump(); // reach the connect_response await
 
       expect(signaling.lastRequestTargetCode, '761335217');
       expect(signaling.lastInviteCode, isNull);
+
+      // Resolve the handshake so the timeout timer does not leak.
+      signaling.emitConnectResponse(const ConnectResponseMessage(
+          accepted: true, sessionId: 'sess-1', fromCode: '761335217'));
+      await tester.pump(const Duration(milliseconds: 100));
     });
 
     testWidgets('Signaling 离线时连接前会先重连再发送 connect_request', (tester) async {
@@ -179,6 +184,11 @@ void main() {
 
       expect(signaling.connectCalled, isTrue);
       expect(signaling.lastRequestTargetCode, '761335217');
+
+      // Resolve the handshake so the timeout timer does not leak.
+      signaling.emitConnectResponse(const ConnectResponseMessage(
+          accepted: true, sessionId: 'sess-1', fromCode: '761335217'));
+      await tester.pump(const Duration(milliseconds: 100));
     });
 
     testWidgets('signaling 重连失败时会重试后再发送 connect_request', (tester) async {
@@ -186,7 +196,7 @@ void main() {
         currentConnectionState: WsConnectionState.disconnected,
         failConnectAttempts: 2,
       );
-      final container = await pumpTestApp(
+      await pumpTestApp(
         tester,
         initialLocation: '/connect',
         fakeSignaling: signaling,
@@ -200,13 +210,15 @@ void main() {
       expect(signaling.connectAttempts, 3);
       expect(signaling.lastRequestTargetCode, '761335217');
 
-      final engine = container.read(engineProvider) as FakeEngineIsolate;
-      expect(engine.lastConnectCode, '761335217');
+      // Resolve the handshake so the timeout timer does not leak.
+      signaling.emitConnectResponse(const ConnectResponseMessage(
+          accepted: true, sessionId: 'sess-1', fromCode: '761335217'));
+      await tester.pump(const Duration(milliseconds: 100));
     });
 
-    testWidgets('connect_request 发送失败时会重试后再调用 engine.connect', (tester) async {
+    testWidgets('connect_request 发送失败时会重试后再发出请求', (tester) async {
       final signaling = FakeSessionSignaling(failRequestAttempts: 2);
-      final container = await pumpTestApp(
+      await pumpTestApp(
         tester,
         initialLocation: '/connect',
         fakeSignaling: signaling,
@@ -220,16 +232,26 @@ void main() {
       expect(signaling.requestAttempts, 3);
       expect(signaling.lastRequestTargetCode, '761335217');
 
-      final engine = container.read(engineProvider) as FakeEngineIsolate;
-      expect(engine.lastConnectCode, '761335217');
+      // Resolve the handshake so the timeout timer does not leak.
+      signaling.emitConnectResponse(const ConnectResponseMessage(
+          accepted: true, sessionId: 'sess-1', fromCode: '761335217'));
+      await tester.pump(const Duration(milliseconds: 100));
     });
 
-    testWidgets('连接成功后 session 状态为 connected', (tester) async {
-      final container = await pumpTestApp(tester, initialLocation: '/connect');
+    testWidgets('对方接受后 session 状态为 connected', (tester) async {
+      final signaling = FakeSessionSignaling();
+      final container = await pumpTestApp(
+        tester,
+        initialLocation: '/connect',
+        fakeSignaling: signaling,
+      );
       await tester.pumpAndSettle();
 
       await tester.enterText(find.byType(TextFormField).first, '987654321');
       await tester.tap(find.text('连接'));
+      await tester.pump();
+      signaling.emitConnectResponse(const ConnectResponseMessage(
+          accepted: true, sessionId: 'sess-1', fromCode: '987654321'));
       await tester.pump(const Duration(milliseconds: 100));
 
       final session = container.read(sessionProvider);
@@ -237,22 +259,24 @@ void main() {
       expect(session!.state, SessionState.connected);
     });
 
-    testWidgets('连接失败时显示错误 snackbar', (tester) async {
-      // Use a fake engine that returns -1 (failure) for connect.
-      final failingEngine = FakeEngineIsolate(connectResult: -1);
+    testWidgets('对方拒绝时显示错误 snackbar', (tester) async {
+      final signaling = FakeSessionSignaling();
       await pumpTestApp(
         tester,
         initialLocation: '/connect',
-        fakeEngine: failingEngine,
+        fakeSignaling: signaling,
       );
       await tester.pumpAndSettle();
 
       await tester.enterText(find.byType(TextFormField).first, '987654321');
       await tester.tap(find.text('连接'));
-      await tester.pumpAndSettle();
+      await tester.pump();
+      signaling.emitConnectResponse(const ConnectResponseMessage(
+          accepted: false, sessionId: 'sess-1', fromCode: '987654321'));
+      await tester.pump(const Duration(milliseconds: 100));
 
-      // Should show error snackbar.
-      expect(find.text('连接失败，请检查设备代码后重试'), findsOneWidget);
+      // Should show error snackbar (rejected / timeout / offline).
+      expect(find.text('连接失败：对方已拒绝、超时或设备离线'), findsOneWidget);
     });
 
     testWidgets('点击返回按钮导航到首页', (tester) async {

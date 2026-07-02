@@ -49,19 +49,23 @@ class _ConnectPageState extends ConsumerState<ConnectPage> {
       if (!mounted) return;
 
       if (session != null && session.state == SessionState.connected) {
-        context.go('/session');
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('对方已接受，信令握手成功（画面通道将在后续里程碑接入）'),
+            backgroundColor: Color(0xFF10B981),
+          ),
+        );
       } else if (session != null && session.state == SessionState.error) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('连接失败，请检查设备代码后重试'),
+            content: Text('连接失败：对方已拒绝、超时或设备离线'),
             backgroundColor: Color(0xFFEF4444),
           ),
         );
-      } else {
-        // Still connecting (waiting for server confirmation) — navigate
-        // to session screen which will display the connecting state.
-        context.go('/session');
       }
+      // connect() only returns after a terminal state (connected/error); the
+      // old optimistic "still connecting -> /session" branch is removed.
+      // Milestone A has no media page, so we do not navigate to /session.
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
