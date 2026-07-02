@@ -33,7 +33,7 @@ A 发起连接 → B 端**无论在哪个页面**都弹出接受/拒绝对话框
 | AC7 | B dialog 开着时,C 也发起连接 | C 立即收到 `accepted:false`;B 的当前 dialog 不受干扰 |
 | AC8 | A 发起后,收到 accepted 前 | A 处于 `connecting` 态,**不**调用 `_engine.connect`、**不**进 `/session` |
 | AC9 | A 等 response 网络超时(35s 无 response 且无 error) | A 报错回 idle |
-| AC10 | session_id 全程一致 | B 回传的 session_id == 服务端为该 request 生成的 UUID == controller 收到的 session_id |
+| AC10 | session_id 全程一致 | B 收到的 ConnectRequest.session_id(非空)== 服务端生成的 UUID;B 原样回传 == controller 收到的 session_id |
 
 ---
 
@@ -45,11 +45,11 @@ A 发起连接 → B 端**无论在哪个页面**都弹出接受/拒绝对话框
 
 **文件**:`crates/rdcs-signaling/src/ws/message.rs`、`src/handlers/connect.rs`
 
-- `WsMessage::ConnectRequest` 新增字段 `session_id: String`(放在 from/to 之后,invite 之前;`session_id` 不做 `skip_serializing_if`,始终序列化)。
-- `handle_connect_request`:UUID 已在 `let session_id = Uuid::new_v4()` 处生成,把它填入转发给 B 的 `ConnectRequest`。生成顺序需前移到构造转发消息之前(当前已在 offline 检查之后生成,顺序满足)。
-- 现有测试更新:`connect_request_forwards_to_target` 等断言 `ConnectRequest` 含非空 `session_id`;新增断言"转发的 session_id 与 pending 记录用的同源"(通过后续 response 流验证)。
+- `WsMessage::ConnectRequest` 新增字段 `session_id: Option<String>`(`#[serde(skip_serializing_if = "Option::is_none")]`)。**为何 Option 而非 required**:`ConnectRequest` 是**同一 union variant 双向复用**——controller→server 方向(`requestConnection` 发出时)还没有 session_id,server→B 方向才带。required 会破坏 controller→server 的序列化。
+- `handle_connect_request`:UUID 已在 `let session_id = Uuid::new_v4()` 处生成,把它 `Some(session_id)` 填入转发给 B 的 `ConnectRequest`。inbound 路由 `handler.rs:225` 的解构忽略入站 session_id(controller 发的是 None)。
+- 现有测试更新:`connect_request_forwards_to_target` 断言转发的 `ConnectRequest` 的 `session_id` 为 `Some(非空)`;`connect_request_round_trip`(`message.rs`)补 session_id 字段。
 
-**接口契约**(wire,snake_case,见 memory `rdcs-signaling-protocol-snakecase`):
+**接口契约**(wire,snake_case,见 memory `rdcs-signaling-protocol-snakecase`)。server→B 方向带 session_id;controller→server 方向省略(None 不序列化):
 ```json
 { "type": "connect_request",
   "from_code": "761335217", "to_code": "123456789",
@@ -60,9 +60,9 @@ A 发起连接 → B 端**无论在哪个页面**都弹出接受/拒绝对话框
 
 **文件**:`client/flutter/lib/core/signaling/models/signaling_message.dart`(+ 重新 codegen `.freezed/.g`)
 
-- `ConnectRequestMessage` factory 加 `@JsonKey(name: 'session_id') required String sessionId`。
-- `SignalingService._handleMessage` 的 `connectRequest:` 分支签名随之 `(fromCode, toCode, sessionId, inviteCode)`,把 sessionId 一并放进 `_invitationsController.add(...)`。
-- `requestConnection`(发起方)不需要传 session_id(仍由服务端生成);只有 server→client 的 ConnectRequest 带它。
+- `ConnectRequestMessage` factory 加 `@JsonKey(name: 'session_id') String? sessionId`(**nullable**,与 Rust `Option` 对齐;controller 侧发出时为 null)。
+- `SignalingService._handleMessage` 的 `connectRequest:` 分支签名随之 `(fromCode, toCode, sessionId, inviteCode)`,把 sessionId 一并放进 `_invitationsController.add(...)`。收到的入站请求 sessionId 应非空(服务端填了);宿主消费时用它回 response。
+- `requestConnection`(发起方)不传 session_id(仍由服务端生成);只有 server→client 的 ConnectRequest 带它。
 
 > 风险控制:3.1 与 3.2 必须**同一 PR 同步改**并跑双端序列化测试,否则 client freezed 与 server serde 不匹配 → 反序列化炸(memory 已坐实的坑)。
 
