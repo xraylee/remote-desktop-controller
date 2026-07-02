@@ -241,7 +241,12 @@ class SignalingService implements SessionSignaling {
         print('📴 Device offline: $deviceCode ($reason)');
       },
       relayAssigned: (sessionId, relayAddr, relayPort, token) {
-        _relayAssignedController.add(message as RelayAssignedMessage);
+        _relayAssignedController.add(RelayAssignedMessage(
+          sessionId: sessionId,
+          relayAddr: relayAddr,
+          relayPort: relayPort,
+          token: token,
+        ));
         print('🌐 Relay assigned: $relayAddr:$relayPort');
       },
       inviteGenerated: (inviteCode) {
@@ -251,9 +256,9 @@ class SignalingService implements SessionSignaling {
       inviteResult: (sessionId, toCode) {
         print('🎫 Invite accepted: session $sessionId with $toCode');
       },
-      error: (code, message) {
-        _errorsController.add(message as ErrorMessage);
-        print('❌ Server error [$code]: $message');
+      error: (code, errorMessage) {
+        _errorsController.add(ErrorMessage(code: code, message: errorMessage));
+        print('❌ Server error [$code]: $errorMessage');
       },
 
       // Client → Server messages (should not receive, but handle gracefully)
@@ -261,7 +266,11 @@ class SignalingService implements SessionSignaling {
       heartbeat: (_, __) => _logUnexpected('heartbeat'),
       connectRequest: (fromCode, toCode, inviteCode) {
         // This is an incoming connection request
-        _invitationsController.add(message as ConnectRequestMessage);
+        _invitationsController.add(ConnectRequestMessage(
+          fromCode: fromCode,
+          toCode: toCode,
+          inviteCode: inviteCode,
+        ));
         print('📞 Connection request from $fromCode');
       },
       connectResponse: (_, __, ___) => _logUnexpected('connect_response'),

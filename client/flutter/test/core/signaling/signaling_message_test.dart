@@ -27,5 +27,39 @@ void main() {
       expect(json['from_code'], '871843136');
       expect(json['invite_code'], 'INVITE789');
     });
+
+    test('error message deserializes and routes via when() without cast error',
+        () {
+      // Regression: the server's error reply must survive when()-based routing.
+      // Previously `error: (code, message) => message as ErrorMessage` crashed
+      // because when() passes the field String, not the union object.
+      final msg = SignalingMessage.fromJson({
+        'type': 'error',
+        'code': 'device_offline',
+        'message': 'device 761335217 is offline',
+      });
+
+      final routed = msg.when(
+        register: (_, __, ___, ____) => 'register',
+        heartbeat: (_, __) => 'heartbeat',
+        connectRequest: (_, __, ___) => 'connect_request',
+        connectResponse: (_, __, ___) => 'connect_response',
+        iceOffer: (_, __, ___) => 'ice_offer',
+        iceAnswer: (_, __, ___) => 'ice_answer',
+        iceTrickle: (_, __) => 'ice_trickle',
+        relayRequest: (_, __) => 'relay_request',
+        relayAssigned: (_, __, ___, ____) => 'relay_assigned',
+        peerOffline: (_, __) => 'peer_offline',
+        nearbyUpdate: (_) => 'nearby_update',
+        generateInvite: (_) => 'generate_invite',
+        useInvite: (_, __) => 'use_invite',
+        inviteGenerated: (_) => 'invite_generated',
+        inviteResult: (_, __) => 'invite_result',
+        // The callback receives the code + message String fields directly.
+        error: (code, message) => 'error:$code:$message',
+      );
+
+      expect(routed, 'error:device_offline:device 761335217 is offline');
+    });
   });
 }

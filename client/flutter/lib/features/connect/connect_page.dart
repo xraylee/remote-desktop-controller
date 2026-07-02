@@ -17,12 +17,14 @@ class ConnectPage extends ConsumerStatefulWidget {
 
 class _ConnectPageState extends ConsumerState<ConnectPage> {
   final _codeController = TextEditingController();
+  final _inviteController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
   bool _isConnecting = false;
 
   @override
   void dispose() {
     _codeController.dispose();
+    _inviteController.dispose();
     super.dispose();
   }
 
@@ -34,9 +36,13 @@ class _ConnectPageState extends ConsumerState<ConnectPage> {
     });
 
     final code = _codeController.text.replaceAll(RegExp(r'\s'), '');
+    final invite = _inviteController.text.trim();
 
     try {
-      await ref.read(sessionProvider.notifier).connect(code);
+      await ref.read(sessionProvider.notifier).connect(
+            code,
+            inviteCode: invite.isEmpty ? null : invite,
+          );
 
       // Check state after connect attempt.
       final session = ref.read(sessionProvider);
@@ -124,6 +130,16 @@ class _ConnectPageState extends ConsumerState<ConnectPage> {
                       }
                       return null;
                     },
+                  ),
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: _inviteController,
+                    decoration: const InputDecoration(
+                      labelText: '邀请码(选填)',
+                      hintText: '对方分享的一次性口令',
+                    ),
+                    textAlign: TextAlign.center,
+                    enabled: !_isConnecting,
                   ),
                   const SizedBox(height: 24),
                   ElevatedButton(

@@ -65,11 +65,14 @@ class SessionNotifier extends StateNotifier<SessionInfo?> {
 
   /// Initiates a connection to a remote device by its 9-digit code.
   ///
+  /// An optional [inviteCode] (a one-time authorization token shared by the
+  /// controlled device) is forwarded with the `connect_request`.
+  ///
   /// Sets the session state to [SessionState.connecting], invokes
   /// [EngineIsolate.connect], and updates state based on the result.
   /// On success the state becomes [SessionState.connected]; on
   /// failure it becomes [SessionState.error].
-  Future<void> connect(String targetCode) async {
+  Future<void> connect(String targetCode, {String? inviteCode}) async {
     // Remove dashes/spaces if the user typed them.
     final code = targetCode.replaceAll(RegExp(r'[\s-]'), '');
 
@@ -92,7 +95,7 @@ class SessionNotifier extends StateNotifier<SessionInfo?> {
               WsConnectionState.connected) {
             await _signaling.connect();
           }
-          _signaling.requestConnection(code);
+          _signaling.requestConnection(code, inviteCode: inviteCode);
           requestError = null;
           break;
         } catch (e) {

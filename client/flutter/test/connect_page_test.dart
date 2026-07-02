@@ -48,7 +48,7 @@ void main() {
       await pumpTestApp(tester, initialLocation: '/connect');
       await tester.pumpAndSettle();
 
-      await tester.enterText(find.byType(TextFormField), '12345');
+      await tester.enterText(find.byType(TextFormField).first, '12345');
       await tester.tap(find.text('连接'));
       await tester.pumpAndSettle();
 
@@ -59,7 +59,7 @@ void main() {
       await pumpTestApp(tester, initialLocation: '/connect');
       await tester.pumpAndSettle();
 
-      await tester.enterText(find.byType(TextFormField), '1234567890');
+      await tester.enterText(find.byType(TextFormField).first, '1234567890');
       await tester.tap(find.text('连接'));
       await tester.pumpAndSettle();
 
@@ -71,7 +71,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // Enter code with spaces — validator strips them.
-      await tester.enterText(find.byType(TextFormField), '123 456 789');
+      await tester.enterText(find.byType(TextFormField).first, '123 456 789');
       await tester.tap(find.text('连接'));
       await tester.pump(const Duration(milliseconds: 100));
 
@@ -92,7 +92,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      await tester.enterText(find.byType(TextFormField), '987654321');
+      await tester.enterText(find.byType(TextFormField).first, '987654321');
       await tester.tap(find.text('连接'));
       for (var i = 0; i < 10; i++) {
         await tester.pump(const Duration(milliseconds: 100));
@@ -112,6 +112,56 @@ void main() {
       expect(session!.state, SessionState.connected);
     });
 
+    testWidgets('输入设备码与邀请码，邀请码随 connect_request 一并发送',
+        (tester) async {
+      final signaling = FakeSessionSignaling();
+      final container = await pumpTestApp(
+        tester,
+        initialLocation: '/connect',
+        fakeSignaling: signaling,
+      );
+      await tester.pumpAndSettle();
+
+      // First field = device code, second field = optional invite code.
+      await tester.enterText(find.byType(TextFormField).first, '761335217');
+      await tester.enterText(find.byType(TextFormField).at(1), 'INVITE42');
+      await tester.tap(find.text('连接'));
+      for (var i = 0; i < 10; i++) {
+        await tester.pump(const Duration(milliseconds: 100));
+        if (find.text('输入对方设备代码').evaluate().isEmpty) {
+          break;
+        }
+      }
+
+      final engine = container.read(engineProvider) as FakeEngineIsolate;
+      expect(engine.lastConnectCode, '761335217');
+      expect(signaling.lastRequestTargetCode, '761335217');
+      expect(signaling.lastInviteCode, 'INVITE42');
+    });
+
+    testWidgets('不填邀请码时 connect_request 的 inviteCode 为 null',
+        (tester) async {
+      final signaling = FakeSessionSignaling();
+      await pumpTestApp(
+        tester,
+        initialLocation: '/connect',
+        fakeSignaling: signaling,
+      );
+      await tester.pumpAndSettle();
+
+      await tester.enterText(find.byType(TextFormField).first, '761335217');
+      await tester.tap(find.text('连接'));
+      for (var i = 0; i < 10; i++) {
+        await tester.pump(const Duration(milliseconds: 100));
+        if (find.text('输入对方设备代码').evaluate().isEmpty) {
+          break;
+        }
+      }
+
+      expect(signaling.lastRequestTargetCode, '761335217');
+      expect(signaling.lastInviteCode, isNull);
+    });
+
     testWidgets('Signaling 离线时连接前会先重连再发送 connect_request', (tester) async {
       final signaling = FakeSessionSignaling(
         currentConnectionState: WsConnectionState.disconnected,
@@ -123,7 +173,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      await tester.enterText(find.byType(TextFormField), '761335217');
+      await tester.enterText(find.byType(TextFormField).first, '761335217');
       await tester.tap(find.text('连接'));
       await tester.pump(const Duration(milliseconds: 100));
 
@@ -143,7 +193,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      await tester.enterText(find.byType(TextFormField), '761335217');
+      await tester.enterText(find.byType(TextFormField).first, '761335217');
       await tester.tap(find.text('连接'));
       await tester.pump(const Duration(seconds: 1));
 
@@ -163,7 +213,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      await tester.enterText(find.byType(TextFormField), '761335217');
+      await tester.enterText(find.byType(TextFormField).first, '761335217');
       await tester.tap(find.text('连接'));
       await tester.pump(const Duration(seconds: 2));
 
@@ -178,7 +228,7 @@ void main() {
       final container = await pumpTestApp(tester, initialLocation: '/connect');
       await tester.pumpAndSettle();
 
-      await tester.enterText(find.byType(TextFormField), '987654321');
+      await tester.enterText(find.byType(TextFormField).first, '987654321');
       await tester.tap(find.text('连接'));
       await tester.pump(const Duration(milliseconds: 100));
 
@@ -197,7 +247,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      await tester.enterText(find.byType(TextFormField), '987654321');
+      await tester.enterText(find.byType(TextFormField).first, '987654321');
       await tester.tap(find.text('连接'));
       await tester.pumpAndSettle();
 
@@ -234,7 +284,7 @@ void main() {
 
       // Before connecting, the text field should be enabled.
       final textField =
-          tester.widget<TextFormField>(find.byType(TextFormField));
+          tester.widget<TextFormField>(find.byType(TextFormField).first);
       expect(textField.enabled, isNot(false));
 
       // The connect button should be enabled.
@@ -256,7 +306,7 @@ void main() {
       // hintText is inside InputDecoration, find via the TextField.
       final textField = tester.widget<TextField>(
         find.descendant(
-          of: find.byType(TextFormField),
+          of: find.byType(TextFormField).first,
           matching: find.byType(TextField),
         ),
       );
