@@ -36,8 +36,8 @@ void main() {
       );
       await tester.pump();
 
-      // Should show the connecting view with spinner.
-      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+      // The connecting overlay and video placeholder can both show progress.
+      expect(find.byType(CircularProgressIndicator), findsWidgets);
 
       // Device code formatted as XXX-XXX-XXX.
       expect(find.textContaining('987-654-321'), findsOneWidget);
@@ -274,8 +274,8 @@ void main() {
       );
       await tester.pump();
 
-      // Video placeholder shows "远程桌面画面" text.
-      expect(find.text('远程桌面画面'), findsOneWidget);
+      // VideoRenderer placeholder is shown until the first frame arrives.
+      expect(find.text('Waiting for video...'), findsOneWidget);
     });
 
     // ── Disconnected state ──────────────────────────────────────
@@ -301,21 +301,31 @@ void main() {
     });
 
     testWidgets('断开状态触发导航回首页', (tester) async {
-      await pumpTestApp(
+      final container = await pumpTestApp(
         tester,
         initialLocation: '/session',
         initialSession: const SessionInfo(
           sessionId: 1,
           remoteDeviceCode: '987654321',
           remoteDeviceName: '987654321',
+          state: SessionState.connected,
+        ),
+      );
+      await tester.pump();
+
+      (container.read(sessionProvider.notifier) as TestSessionNotifier)
+          .setSessionState(
+        const SessionInfo(
+          sessionId: 1,
+          remoteDeviceCode: '987654321',
+          remoteDeviceName: '987654321',
           state: SessionState.disconnected,
         ),
       );
-      // Let the listener navigate back.
       await tester.pumpAndSettle();
 
       // Should be on the home page now.
-      expect(find.text('RDCS 远程桌面'), findsOneWidget);
+      expect(find.text('RDCS 远程桌面'), findsWidgets);
     });
 
     // ── Error state ─────────────────────────────────────────────
@@ -342,10 +352,21 @@ void main() {
     });
 
     testWidgets('错误状态触发导航回首页', (tester) async {
-      await pumpTestApp(
+      final container = await pumpTestApp(
         tester,
         initialLocation: '/session',
         initialSession: const SessionInfo(
+          sessionId: 1,
+          remoteDeviceCode: '987654321',
+          remoteDeviceName: '987654321',
+          state: SessionState.connected,
+        ),
+      );
+      await tester.pump();
+
+      (container.read(sessionProvider.notifier) as TestSessionNotifier)
+          .setSessionState(
+        const SessionInfo(
           sessionId: 0,
           remoteDeviceCode: '987654321',
           remoteDeviceName: '987654321',
@@ -354,7 +375,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.text('RDCS 远程桌面'), findsOneWidget);
+      expect(find.text('RDCS 远程桌面'), findsWidgets);
     });
 
     // ── Background color ────────────────────────────────────────

@@ -9,6 +9,9 @@ import 'package:freezed_annotation/freezed_annotation.dart';
 
 import '../../core/ffi/engine_events.dart';
 import '../../core/ffi/engine_isolate.dart';
+import '../../core/signaling/session_signaling.dart';
+import '../../core/signaling/signaling_provider.dart';
+import '../../core/signaling/websocket_client.dart';
 
 part 'session_providers.freezed.dart';
 
@@ -52,9 +55,10 @@ class SessionInfo with _$SessionInfo {
 /// to the engine event stream and updates [SessionInfo] state when
 /// connection, frame, or quality events arrive.
 class SessionNotifier extends StateNotifier<SessionInfo?> {
-  SessionNotifier(this._engine) : super(null);
+  SessionNotifier(this._engine, this._signaling) : super(null);
 
   final EngineIsolate _engine;
+  final SessionSignaling _signaling;
   StreamSubscription<EngineEvent>? _subscription;
 
   /// Initiates a connection to a remote device by its 9-digit code.
@@ -77,6 +81,11 @@ class SessionNotifier extends StateNotifier<SessionInfo?> {
     _subscribeToEvents();
 
     try {
+      if (_signaling.currentConnectionState != WsConnectionState.connected) {
+        await _signaling.connect();
+      }
+      _signaling.requestConnection(code);
+
       final sessionId = await _engine.connect(code);
       if (sessionId > 0) {
         state = state?.copyWith(
@@ -205,7 +214,8 @@ class SessionNotifier extends StateNotifier<SessionInfo?> {
 final sessionProvider =
     StateNotifierProvider<SessionNotifier, SessionInfo?>((ref) {
   final engine = ref.watch(engineProvider);
-  return SessionNotifier(engine);
+  final signaling = ref.watch(signalingServiceProvider);
+  return SessionNotifier(engine, signaling);
 });
 
 // ── Nearby devices ─────────────────────────────────────────────

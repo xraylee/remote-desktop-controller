@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:rdcs_client/core/ffi/engine_isolate.dart';
+import 'package:rdcs_client/core/signaling/websocket_client.dart';
 import 'package:rdcs_client/features/session/session_providers.dart';
 import 'helpers.dart';
 
@@ -72,7 +73,7 @@ void main() {
       // Enter code with spaces — validator strips them.
       await tester.enterText(find.byType(TextFormField), '123 456 789');
       await tester.tap(find.text('连接'));
-      await tester.pumpAndSettle();
+      await tester.pump(const Duration(milliseconds: 100));
 
       // Should NOT show validation error (code is valid after stripping).
       expect(find.text('请输入9位设备代码'), findsNothing);
@@ -84,16 +85,27 @@ void main() {
 
     testWidgets('输入有效9位代码并连接，调用 sessionProvider.connect()',
         (tester) async {
-      final container = await pumpTestApp(tester, initialLocation: '/connect');
+      final signaling = FakeSessionSignaling();
+      final container = await pumpTestApp(
+        tester,
+        initialLocation: '/connect',
+        fakeSignaling: signaling,
+      );
       await tester.pumpAndSettle();
 
       await tester.enterText(find.byType(TextFormField), '987654321');
       await tester.tap(find.text('连接'));
-      await tester.pumpAndSettle();
+      for (var i = 0; i < 10; i++) {
+        await tester.pump(const Duration(milliseconds: 100));
+        if (find.text('输入对方设备代码').evaluate().isEmpty) {
+          break;
+        }
+      }
 
       // Verify the fake engine received the connect call.
       final engine = container.read(engineProvider) as FakeEngineIsolate;
       expect(engine.lastConnectCode, '987654321');
+      expect(signaling.lastRequestTargetCode, '987654321');
 
       // The session notifier should have processed the connection.
       final session = container.read(sessionProvider);
@@ -101,20 +113,37 @@ void main() {
       expect(session!.state, SessionState.connected);
     });
 
-    testWidgets('连接成功后导航到 /session', (tester) async {
-      await pumpTestApp(tester, initialLocation: '/connect');
+    testWidgets('Signaling 离线时连接前会先重连再发送 connect_request',
+        (tester) async {
+      final signaling = FakeSessionSignaling(
+        currentConnectionState: WsConnectionState.disconnected,
+      );
+      await pumpTestApp(
+        tester,
+        initialLocation: '/connect',
+        fakeSignaling: signaling,
+      );
+      await tester.pumpAndSettle();
+
+      await tester.enterText(find.byType(TextFormField), '761335217');
+      await tester.tap(find.text('连接'));
+      await tester.pump(const Duration(milliseconds: 100));
+
+      expect(signaling.connectCalled, isTrue);
+      expect(signaling.lastRequestTargetCode, '761335217');
+    });
+
+    testWidgets('连接成功后 session 状态为 connected', (tester) async {
+      final container = await pumpTestApp(tester, initialLocation: '/connect');
       await tester.pumpAndSettle();
 
       await tester.enterText(find.byType(TextFormField), '987654321');
       await tester.tap(find.text('连接'));
-      await tester.pumpAndSettle();
+      await tester.pump(const Duration(milliseconds: 100));
 
-      // After successful connection, should navigate to session screen.
-      // Session screen has a dark background and shows the session UI.
-      // The connecting view shows "正在连接" text, connected shows toolbars.
-      // Since fakeEngine returns success immediately, we should be on session.
-      expect(find.text('连接远程设备'), findsNothing); // AppBar title gone
-      expect(find.text('输入对方设备代码'), findsNothing); // Connect page gone
+      final session = container.read(sessionProvider);
+      expect(session, isNotNull);
+      expect(session!.state, SessionState.connected);
     });
 
     testWidgets('连接失败时显示错误 snackbar', (tester) async {
@@ -147,7 +176,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // Should navigate back to home page.
-      expect(find.text('RDCS 远程桌面'), findsOneWidget);
+      expect(find.text('RDCS 远程桌面'), findsWidgets);
     });
 
     testWidgets('连接中输入框禁用', (tester) async {

@@ -6,6 +6,7 @@ import 'dart:async';
 import 'package:rxdart/rxdart.dart';
 
 import 'models/signaling_message.dart';
+import 'session_signaling.dart';
 import 'websocket_client.dart';
 
 /// Signaling service for device registration, connection negotiation,
@@ -14,7 +15,7 @@ import 'websocket_client.dart';
 /// This is the main interface for the rest of the application to interact
 /// with the signaling server. It wraps [WebSocketClient] and provides
 /// high-level methods for common operations.
-class SignalingService {
+class SignalingService implements SessionSignaling {
   SignalingService({
     required this.serverUrl,
     required this.deviceCode,

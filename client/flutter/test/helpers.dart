@@ -13,6 +13,8 @@ import 'package:rdcs_client/core/config/config_provider.dart';
 import 'package:rdcs_client/core/config/config_repository.dart';
 import 'package:rdcs_client/core/ffi/engine_events.dart';
 import 'package:rdcs_client/core/ffi/engine_isolate.dart';
+import 'package:rdcs_client/core/signaling/session_signaling.dart';
+import 'package:rdcs_client/core/signaling/websocket_client.dart';
 import 'package:rdcs_client/features/connect/connect_page.dart';
 import 'package:rdcs_client/features/home/home_page.dart';
 import 'package:rdcs_client/features/session/session_providers.dart';
@@ -142,11 +144,44 @@ class FakeEngineIsolate implements EngineIsolate {
 }
 
 // =============================================================================
+// Fake SessionSignaling — records signaling calls without network I/O.
+// =============================================================================
+
+class FakeSessionSignaling implements SessionSignaling {
+  FakeSessionSignaling({
+    this.deviceCode = '123456789',
+    this.currentConnectionState = WsConnectionState.connected,
+  });
+
+  @override
+  final String deviceCode;
+
+  @override
+  WsConnectionState currentConnectionState;
+
+  bool connectCalled = false;
+  String? lastRequestTargetCode;
+  String? lastInviteCode;
+
+  @override
+  Future<void> connect() async {
+    connectCalled = true;
+    currentConnectionState = WsConnectionState.connected;
+  }
+
+  @override
+  void requestConnection(String targetCode, {String? inviteCode}) {
+    lastRequestTargetCode = targetCode;
+    lastInviteCode = inviteCode;
+  }
+}
+
+// =============================================================================
 // TestSessionNotifier — exposes a public setState for test control.
 // =============================================================================
 
 class TestSessionNotifier extends SessionNotifier {
-  TestSessionNotifier(super.engine);
+  TestSessionNotifier(super.engine, super.signaling);
 
   /// Public setter so tests can directly control session state.
   void setSessionState(SessionInfo? info) {
@@ -167,9 +202,11 @@ Future<ProviderContainer> pumpTestApp(
   String initialLocation = '/',
   RdcsConfig? config,
   FakeEngineIsolate? fakeEngine,
+  FakeSessionSignaling? fakeSignaling,
   SessionInfo? initialSession,
 }) async {
   final engine = fakeEngine ?? FakeEngineIsolate();
+  final signaling = fakeSignaling ?? FakeSessionSignaling();
   final configData = config ?? const RdcsConfig(deviceCode: '123456789');
   final fakeRepo = FakeConfigRepository(configData);
 
@@ -177,7 +214,7 @@ Future<ProviderContainer> pumpTestApp(
     configRepositoryProvider.overrideWithValue(fakeRepo),
     engineProvider.overrideWithValue(engine),
     sessionProvider.overrideWith((ref) {
-      final notifier = TestSessionNotifier(ref.watch(engineProvider));
+      final notifier = TestSessionNotifier(ref.watch(engineProvider), signaling);
       if (initialSession != null) {
         notifier.setSessionState(initialSession);
       }
