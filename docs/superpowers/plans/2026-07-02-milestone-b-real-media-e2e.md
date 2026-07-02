@@ -36,20 +36,20 @@
 - `send_frame(&[u8])`(经 VideoChannel 分片)。
 - `on_frame(cb)`(FrameReassembler 重组后回调完整帧)。
 
-- [ ] **Step 1: 写 `MediaSession`,复刻 example 的 establish_connection 时序但以消息为界**
-- [ ] **Step 2: `cargo build -p rdcs-connection` 通过**
-- [ ] **Step 3: 导出 + commit**
+- [x] **Step 1: 写 `MediaSession`,复刻 example 的 establish_connection 时序但以消息为界**
+- [x] **Step 2: `cargo build -p rdcs-connection` 通过**
+- [x] **Step 3: 导出 + commit**
 
 ## Task 2: 库级集成测试(信令式 e2e)
 
 **Files:** 新建 `crates/rdcs-connection/tests/media_session_e2e.rs`
 
-- [ ] **Step 1: 写测试** —— 建 offerer/answerer;`let offer = offerer.create_local_offer()`;**序列化 offer→JSON→反序列化**交给 answerer;`let answer = answerer.accept_offer(&offer)`;序列化往返交回 offerer;`offerer.accept_answer(answer)`;双方 wait_connected + data_channel_ready;offerer 编码 N 帧(用 rdcs-codec software encoder,test 生成帧)send_frame;answerer on_frame 累计,断言收到 N 帧且解码成功。
-- [ ] **Step 2: 运行** `cargo test -p rdcs-connection --features software-encoder --test media_session_e2e -- --nocapture`,PASS。
-- [ ] **Step 3: commit**
+- [x] **Step 1: 写测试** —— 建 offerer/answerer;`let offer = offerer.create_local_offer()`;**序列化 offer→JSON→反序列化**交给 answerer;`let answer = answerer.accept_offer(&offer)`;序列化往返交回 offerer;`offerer.accept_answer(answer)`;双方 wait_connected + data_channel_ready;offerer 编码 N 帧(用 rdcs-codec software encoder,test 生成帧)send_frame;answerer on_frame 累计,断言收到 N 帧且解码成功。
+- [x] **Step 2: 运行** `cargo test -p rdcs-connection --features software-encoder --test media_session_e2e -- --nocapture`,PASS。
+- [x] **Step 3: commit**
 
 ## Task 3: 回归 + memory
 
-- [ ] **Step 1:** `cargo build -p rdcs-connection --examples` 通过(不回归)。
-- [ ] **Step 2:** 更新 memory `rdcs-milestone-b-media-baseline` 标注 Phase 1 完成。
-- [ ] **Step 3:** commit。
+- [x] **Step 1:** `cargo build -p rdcs-connection --examples` 通过(不回归)。
+- [x] **Step 2:** 更新 memory `rdcs-milestone-b-media-baseline` 标注 Phase 1 完成。
+- [x] **Step 3:** commit。
