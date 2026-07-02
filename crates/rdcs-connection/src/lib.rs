@@ -16,6 +16,7 @@ pub mod reconnect;
 pub mod real_ice_agent;
 pub mod video_channel;
 pub mod frame_reassembler;
+pub mod media_session;
 
 use thiserror::Error;
 
@@ -63,6 +64,7 @@ pub use real_ice_agent::RealIceAgent;
 pub use reconnect::ReconnectStrategy;
 pub use video_channel::VideoChannel;
 pub use frame_reassembler::{FrameReassembler, FrameHeader, FrameError};
+pub use media_session::{MediaSession, MediaRole};
 
 #[cfg(test)]
 mod tests {
